@@ -3,307 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Structured data platform featuring Fukuoka Companies Database and Job Listings Dataset. Access comprehensive business and employment data.">
-    <meta name="keywords" content="Fukuoka companies, job listings, structured data, database, employment">
-    <meta name="author" content="ShinnosukeMoriFukuokaJP">
-    <title>Data Platform - Fukuoka Companies & Job Listings</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            background-color: #f8f9fa;
-        }
-
-        header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 4rem 2rem;
-            text-align: center;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        }
-
-        header h1 {
-            font-size: 2.5rem;
-            margin-bottom: 0.5rem;
-            font-weight: 700;
-        }
-
-        header p {
-            font-size: 1.1rem;
-            opacity: 0.95;
-        }
-
-        nav {
-            background-color: white;
-            border-bottom: 1px solid #e0e0e0;
-            padding: 0;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-        }
-
-        nav ul {
-            list-style: none;
-            display: flex;
-            justify-content: center;
-            flex-wrap: wrap;
-            padding: 1rem;
-            gap: 2rem;
-        }
-
-        nav a {
-            text-decoration: none;
-            color: #667eea;
-            font-weight: 600;
-            transition: color 0.3s ease;
-        }
-
-        nav a:hover {
-            color: #764ba2;
-        }
-
-        nav a.active {
-            color: #764ba2;
-            border-bottom: 2px solid #764ba2;
-            padding-bottom: 0.5rem;
-        }
-
-        main {
-            max-width: 1200px;
-            margin: 3rem auto;
-            padding: 0 2rem;
-        }
-
-        section {
-            margin-bottom: 4rem;
-        }
-
-        .dataset-header {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .dataset-icon {
-            font-size: 2rem;
-        }
-
-        h2 {
-            font-size: 2rem;
-            color: #667eea;
-            margin-bottom: 1rem;
-        }
-
-        .dataset-info {
-            background: white;
-            padding: 2rem;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-            margin-bottom: 2rem;
-        }
-
-        .dataset-description {
-            margin-bottom: 1.5rem;
-            font-size: 1.05rem;
-            line-height: 1.8;
-        }
-
-        .dataset-purpose {
-            background-color: #f0f4ff;
-            border-left: 4px solid #667eea;
-            padding: 1rem;
-            margin-bottom: 2rem;
-            border-radius: 4px;
-        }
-
-        .dataset-purpose h3 {
-            color: #667eea;
-            margin-bottom: 0.5rem;
-            font-size: 0.95rem;
-            text-transform: uppercase;
-            font-weight: 700;
-            letter-spacing: 0.5px;
-        }
-
-        .dataset-purpose p {
-            color: #555;
-            margin: 0;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            background: white;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-        }
-
-        thead {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-
-        th {
-            padding: 1.2rem;
-            text-align: left;
-            font-weight: 600;
-            border: none;
-        }
-
-        td {
-            padding: 1rem 1.2rem;
-            border-bottom: 1px solid #e0e0e0;
-        }
-
-        tbody tr:last-child td {
-            border-bottom: none;
-        }
-
-        tbody tr:hover {
-            background-color: #f8f9fa;
-            transition: background-color 0.3s ease;
-        }
-
-        .field-type {
-            font-family: 'Courier New', monospace;
-            background-color: #f0f0f0;
-            padding: 0.25rem 0.5rem;
-            border-radius: 3px;
-            font-size: 0.9rem;
-            color: #667eea;
-            font-weight: 600;
-        }
-
-        .field-description {
-            color: #666;
-            font-size: 0.95rem;
-        }
-
-        footer {
-            background-color: #2c3e50;
-            color: white;
-            text-align: center;
-            padding: 2rem;
-            margin-top: 4rem;
-        }
-
-        footer p {
-            margin: 0.5rem 0;
-            font-size: 0.95rem;
-        }
-
-        footer a {
-            color: #667eea;
-            text-decoration: none;
-        }
-
-        footer a:hover {
-            text-decoration: underline;
-        }
-
-        .breadcrumb {
-            background-color: white;
-            padding: 1rem 2rem;
-            border-bottom: 1px solid #e0e0e0;
-            margin-bottom: 2rem;
-        }
-
-        .breadcrumb a {
-            color: #667eea;
-            text-decoration: none;
-        }
-
-        .breadcrumb a:hover {
-            text-decoration: underline;
-        }
-
-        .breadcrumb span {
-            color: #999;
-            margin: 0 0.5rem;
-        }
-
-        .dataset-stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 1rem;
-            margin-bottom: 2rem;
-        }
-
-        .stat-card {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 1.5rem;
-            border-radius: 8px;
-            text-align: center;
-        }
-
-        .stat-card .number {
-            font-size: 2rem;
-            font-weight: 700;
-            margin-bottom: 0.5rem;
-        }
-
-        .stat-card .label {
-            font-size: 0.9rem;
-            opacity: 0.9;
-        }
-
-        @media (max-width: 768px) {
-            header h1 {
-                font-size: 1.8rem;
-            }
-
-            header p {
-                font-size: 1rem;
-            }
-
-            nav ul {
-                gap: 1rem;
-            }
-
-            table {
-                font-size: 0.9rem;
-            }
-
-            th, td {
-                padding: 0.8rem;
-            }
-
-            .field-type {
-                display: block;
-                margin-top: 0.25rem;
-            }
-
-            main {
-                margin: 1.5rem auto;
-            }
-        }
-    </style>
+    <meta name="description" content="Structured data platform featuring Fukuoka Companies Database and Job Listings Dataset. Access comprehensive business and employment data with REST APIs.">
+    <meta name="keywords" content="Fukuoka companies, job listings, structured data, database, business intelligence, employment">
+    <meta name="author" content="Shinnosuke Mori">
+    <link rel="canonical" href="https://ShinnosukeMoriFukuokaJP.github.io/data/">
+    <meta property="og:title" content="Data Platform - Shinnosuke Mori">
+    <meta property="og:description" content="Fukuoka Companies Database and Job Listings Dataset for business intelligence and employment insights.">
+    <meta property="og:url" content="https://ShinnosukeMoriFukuokaJP.github.io/data/">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="Data Platform">
+    <meta name="twitter:description" content="Structured datasets for Fukuoka business intelligence.">
+    <title>Data Platform - Shinnosuke Mori | Structured Datasets</title>
+    <link rel="stylesheet" href="/assets/css/style.css">
 </head>
 <body>
     <!-- Navigation -->
     <nav>
         <ul>
             <li><a href="/">Home</a></li>
+            <li><a href="/projects/">Projects</a></li>
             <li><a href="/data/" class="active">Data</a></li>
-            <li><a href="/#about">About</a></li>
-            <li><a href="/#contact">Contact</a></li>
+            <li><a href="/insights/">Insights</a></li>
+            <li><a href="/about.html">About</a></li>
         </ul>
     </nav>
 
     <!-- Header -->
     <header>
-        <h1>📊 Data Platform</h1>
+        <h1>Data Platform</h1>
         <p>Structured datasets for Fukuoka business intelligence and employment insights</p>
     </header>
 
@@ -348,7 +76,7 @@
                     </div>
                 </div>
 
-                <h3 style="color: #333; margin-bottom: 1rem; font-size: 1.3rem;">Sample Fields</h3>
+                <h3>Sample Fields</h3>
                 <table>
                     <thead>
                         <tr>
@@ -450,7 +178,7 @@
                     </div>
                 </div>
 
-                <h3 style="color: #333; margin-bottom: 1rem; font-size: 1.3rem;">Sample Fields</h3>
+                <h3>Sample Fields</h3>
                 <table>
                     <thead>
                         <tr>
@@ -538,18 +266,18 @@
         <!-- Additional Information -->
         <section id="access-info">
             <div class="dataset-info">
-                <h2 style="color: #667eea; margin-bottom: 1.5rem;">📋 Data Access & Usage</h2>
-                <p style="margin-bottom: 1rem;">
-                    <strong>Format:</strong> JSON, CSV, and API endpoints
+                <h2>Data Access & Usage</h2>
+                <p>
+                    <strong>Format:</strong> JSON, CSV, and REST API endpoints
                 </p>
-                <p style="margin-bottom: 1rem;">
+                <p>
                     <strong>Update Frequency:</strong> Fukuoka Companies Database updates monthly; Job Listings Dataset updates daily
                 </p>
-                <p style="margin-bottom: 1rem;">
+                <p>
                     <strong>Usage Terms:</strong> Attribution required. Contact for commercial licensing.
                 </p>
                 <p>
-                    <strong>API Documentation:</strong> Visit our <a href="/api/" style="color: #667eea; font-weight: 600;">API documentation</a> for integration guides and endpoint details.
+                    <strong>API Documentation:</strong> Visit our <a href="#api-docs">API documentation</a> for integration guides and endpoint details.
                 </p>
             </div>
         </section>
@@ -557,8 +285,12 @@
 
     <!-- Footer -->
     <footer>
-        <p>&copy; 2026 Shinnosuke Mori Fukuoka Data Platform. All rights reserved.</p>
-        <p><a href="/#privacy">Privacy Policy</a> | <a href="/#terms">Terms of Service</a> | <a href="/#contact">Contact</a></p>
+        <p>&copy; 2026 Shinnosuke Mori. All rights reserved.</p>
+        <ul>
+            <li><a href="/about.html#privacy">Privacy Policy</a></li>
+            <li><a href="/about.html#terms">Terms of Service</a></li>
+            <li><a href="/about.html#contact">Contact</a></li>
+        </ul>
     </footer>
 </body>
 </html>
