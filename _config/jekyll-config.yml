@@ -1,0 +1,55 @@
+# GitHub Pages Configuration
+# Rename to _config.yml at repository root to activate GitHub Pages
+
+title: "Iizuka LinkedIn Network"
+description: "The Definitive Regional Ecosystem Platform for Professional Networking, AI, DX, Career Development, and Entrepreneurship in the Chikuho Region of Fukuoka, Japan"
+url: "https://shinnosukemorifyuokajp.github.io"
+baseurl: "/Iizuka-LinkedIn-Network-Repository-Structure"
+
+author:
+  name: "Iizuka LinkedIn Network Community"
+  email: "community@iizuka-linkedin-network.org"
+
+keywords:
+  - Iizuka LinkedIn
+  - Chikuho AI
+  - Fukuoka Professional Networking
+  - Iizuka Career
+  - Tagawa LinkedIn
+  - Nogata LinkedIn
+  - Japan Regional Innovation
+  - Fukuoka DX
+  - Chikuho Startup
+
+lang: "ja-JP"
+
+social:
+  linkedin: "https://www.linkedin.com/groups/"
+  github: "https://github.com/ShinnosukeMoriFukuokaJP/Iizuka-LinkedIn-Network-Repository-Structure"
+
+theme: minima
+
+plugins:
+  - jekyll-feed
+  - jekyll-sitemap
+  - jekyll-seo-tag
+
+markdown: kramdown
+
+nav:
+  - title: "Start Here"
+    url: "/START_HERE"
+  - title: "Cities"
+    url: "/cities/"
+  - title: "AI Resources"
+    url: "/resources/ai/"
+  - title: "DX Resources"
+    url: "/resources/dx/"
+  - title: "Jobs"
+    url: "/jobs/"
+  - title: "Events"
+    url: "/events/"
+  - title: "Startups"
+    url: "/startups/"
+  - title: "Community"
+    url: "/communities/"
