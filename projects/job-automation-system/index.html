@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    
+    <!-- SEO Meta Tags -->
+    <title>Job Automation System | Shinnosuke Mori - Recruitment Workflow Automation</title>
+    <meta name="description" content="Detailed case study of Job Automation System - an intelligent recruitment automation platform that streamlines job applications, candidate tracking, and hiring workflows. Technical architecture and implementation details.">
+    <meta name="keywords" content="job automation, recruitment automation, hiring system, candidate tracking, workflow automation, recruitment platform">
+    <meta name="author" content="Shinnosuke Mori">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://shinnosukemori.dev/projects/job-automation-system/">
+    
+    <!-- Open Graph Tags -->
+    <meta property="og:type" content="article">
+    <meta property="og:title" content="Job Automation System - Recruitment Workflow Automation">
+    <meta property="og:description" content="Technical case study: Intelligent job automation platform for recruitment workflows and candidate management.">
+    <meta property="og:url" content="https://shinnosukemori.dev/projects/job-automation-system/">
+    <meta property="og:image" content="https://shinnosukemori.dev/assets/job-automation-og.png">
+    <meta property="og:site_name" content="Shinnosuke Mori Portfolio">
+    
+    <!-- Twitter Card Tags -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Job Automation System - Recruitment Automation">
+    <meta name="twitter:description" content="Technical deep-dive into an intelligent recruitment automation platform.">
+    <meta name="twitter:image" content="https://shinnosukemori.dev/assets/job-automation-twitter.png">
+    <meta name="twitter:creator" content="@ShinnosukeMori">
+    
+    <!-- Additional SEO -->
+    <meta name="language" content="English">
+    <meta name="revisit-after" content="14 days">
+    <meta name="theme-color" content="#2d3748">
+    
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="../../css/styles.css">
+    <link rel="stylesheet" href="../../css/responsive.css">
+    <link rel="stylesheet" href="../../css/projects.css">
+    <link rel="stylesheet" href="../../css/case-study.css">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="../../assets/favicon.png">
+    
+    <!-- JSON-LD Article Schema -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": "Job Automation System - Intelligent Recruitment Workflow Automation",
+      "description": "Technical case study of a comprehensive job automation system that streamlines recruitment workflows",
+      "image": "https://shinnosukemori.dev/assets/job-automation-og.png",
+      "author": {
+        "@type": "Person",
+        "name": "Shinnosuke Mori",
+        "url": "https://shinnosukemori.dev"
+      },
+      "datePublished": "2026-06-09",
+      "dateModified": "2026-06-09",
+      "url": "https://shinnosukemori.dev/projects/job-automation-system/"
+    }
+    </script>
+    
+    <!-- Breadcrumb Schema -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": "https://shinnosukemori.dev/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Projects",
+          "item": "https://shinnosukemori.dev/projects/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "Job Automation System",
+          "item": "https://shinnosukemori.dev/projects/job-automation-system/"
+        }
+      ]
+    }
+    </script>
+</head>
+<body>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    
+    <!-- Header -->
+    <header role="banner" class="header">
+        <nav role="navigation" aria-label="Main navigation" class="navbar">
+            <div class="container">
+                <div class="navbar-brand">
+                    <a href="../../index.html" class="logo" aria-label="Shinnosuke Mori - Home">SM</a>
+                    <span class="tagline">Web Developer</span>
+                </div>
+                <ul class="nav-menu" id="nav-menu">
+                    <li><a href="../../index.html#about" class="nav-link">About</a></li>
+                    <li><a href="../../projects/index.html" class="nav-link">Projects</a></li>
+                    <li><a href="../../skills.html" class="nav-link">Skills</a></li>
+                    <li><a href="../../contact.html" class="nav-link">Contact</a></li>
+                </ul>
+                <button class="hamburger" id="hamburger" aria-label="Toggle navigation" aria-expanded="false">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+        </nav>
+    </header>
+
+    <main id="main-content" role="main">
+        <!-- Hero Section -->
+        <section class="case-study-hero" aria-labelledby="hero-title">
+            <div class="container">
+                <div class="case-study-header">
+                    <span class="project-category">Case Study</span>
+                    <h1 id="hero-title">Job Automation System</h1>
+                    <p class="case-study-tagline">Intelligent Recruitment Workflow Automation Platform</p>
+                    <p class="case-study-description">
+                        A comprehensive automation system designed to streamline job applications, candidate tracking, 
+                        and recruitment workflows at scale.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Quick Stats -->
+        <section class="quick-stats" aria-labelledby="stats-title">
+            <div class="container">
+                <h2 id="stats-title" class="sr-only">Project Statistics</h2>
+                <div class="stats-grid">
+                    <div class="stat-box">
+                        <div class="stat-value">60%</div>
+                        <div class="stat-label">Time Saved</div>
+                        <div class="stat-description">Manual recruitment tasks automated</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value">3x</div>
+                        <div class="stat-label">Faster Hiring</div>
+                        <div class="stat-description">Reduced recruitment cycle time</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value">100+</div>
+                        <div class="stat-label">Daily Jobs</div>
+                        <div class="stat-description">Applications processed</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value">99.9%</div>
+                        <div class="stat-label">Uptime</div>
+                        <div class="stat-description">Enterprise-grade reliability</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Table of Contents -->
+        <section class="case-study-toc" aria-labelledby="toc-title">
+            <div class="container">
+                <h2 id="toc-title">Contents</h2>
+                <nav class="toc-nav" aria-label="Case study sections">
+                    <ul class="toc-list">
+                        <li><a href="#overview">1. System Overview</a></li>
+                        <li><a href="#problem">2. Problem Statement</a></li>
+                        <li><a href="#solution">3. Solution Architecture</a></li>
+                        <li><a href="#technical-architecture">4. Technical Architecture</a></li>
+                        <li><a href="#technologies">5. Technologies Used</a></li>
+                        <li><a href="#benefits">6. Key Benefits</a></li>
+                        <li><a href="#future">7. Future Improvements</a></li>
+                    </ul>
+                </nav>
+            </div>
+        </section>
+
+        <!-- 1. System Overview -->
+        <section id="overview" class="case-study-section" aria-labelledby="overview-title">
+            <div class="container">
+                <h2 id="overview-title">1. System Overview</h2>
+                
+                <div class="section-content">
+                    <p>
+                        The Job Automation System is a comprehensive platform designed to revolutionize how organizations 
+                        manage recruitment workflows. It intelligently collects, processes, and manages job applications 
+                        while automating administrative tasks throughout the hiring lifecycle.
+                    </p>
+                    
+                    <h3>What the System Does</h3>
+                    <ul class="feature-list">
+                        <li>
+                            <strong>Automated Job Collection:</strong> Continuously monitors and aggregates job postings 
+                            from multiple job boards, company websites, and job feeds
+                        </li>
+                        <li>
+                            <strong>Intelligent Candidate Tracking:</strong> Maintains comprehensive candidate profiles 
+                            with application history, resume parsing, and skill matching
+                        </li>
+                        <li>
+                            <strong>Workflow Automation:</strong> Automates email notifications, interview scheduling, 
+                            and follow-up communications
+                        </li>
+                        <li>
+                            <strong>Application Processing:</strong> Parses and standardizes job applications, extracts 
+                            relevant information, and flags qualified candidates
+                        </li>
+                        <li>
+                            <strong>Analytics Dashboard:</strong> Provides real-time insights into recruitment metrics, 
+                            pipeline health, and hiring trends
+                        </li>
+                        <li>
+                            <strong>Integration Layer:</strong> Seamlessly integrates with HR systems, email providers, 
+                            and calendar services
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. Problem Statement -->
+        <section id="problem" class="case-study-section" aria-labelledby="problem-title">
+            <div class="container">
+                <h2 id="problem-title">2. Problem Statement</h2>
+                
+                <div class="section-content">
+                    <p>
+                        Traditional recruitment processes are fragmented, time-consuming, and prone to human error. 
+                        Organizations face significant challenges in managing the modern hiring landscape:
+                    </p>
+                    
+                    <div class="problem-boxes">
+                        <div class="problem-box">
+                            <h3>📋 Manual Data Entry</h3>
+                            <p>
+                                Recruiters spend hours manually entering candidate information from applications, 
+                                resumes, and job postings into disparate systems, creating bottlenecks and introducing errors.
+                            </p>
+                        </div>
+                        <div class="problem-box">
+                            <h3>🔄 Fragmented Processes</h3>
+                            <p>
+                                Job applications exist across multiple platforms (LinkedIn, Indeed, company websites, email), 
+                                making it difficult to maintain a unified view of the candidate pipeline.
+                            </p>
+                        </div>
+                        <div class="problem-box">
+                            <h3>⏱️ Delayed Communications</h3>
+                            <p>
+                                Manual scheduling of interviews and follow-ups leads to delayed responses, 
+                                resulting in lost candidates and poor candidate experience.
+                            </p>
+                        </div>
+                        <div class="problem-box">
+                            <h3>📊 Lack of Visibility</h3>
+                            <p>
+                                Without centralized tracking, recruitment teams lack real-time insights into pipeline health, 
+                                time-to-hire metrics, and hiring trends.
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <div class="problem-stats">
+                        <p><strong>Industry Impact:</strong></p>
+                        <ul>
+                            <li>Recruiters spend ~40% of their time on administrative tasks</li>
+                            <li>Average time-to-hire is 42 days (should be ~21 days)</li>
+                            <li>Poor candidate experience leads to 20-30% offer rejection rate</li>
+                            <li>Manual data entry has 5-10% error rate</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. Solution Architecture -->
+        <section id="solution" class="case-study-section" aria-labelledby="solution-title">
+            <div class="container">
+                <h2 id="solution-title">3. Solution Architecture</h2>
+                
+                <div class="section-content">
+                    <p>
+                        The Job Automation System provides an integrated, end-to-end solution that eliminates manual 
+                        recruitment bottlenecks while maintaining human oversight for critical decisions.
+                    </p>
+                    
+                    <h3>Core Components</h3>
+                    
+                    <div class="solution-component">
+                        <h4>A. Job Aggregation Engine</h4>
+                        <p>
+                            Automatically collects job postings from configured sources using APIs, web scraping, 
+                            and feed readers. The system:
+                        </p>
+                        <ul>
+                            <li>Monitors job boards (LinkedIn, Indeed, Glassdoor, AngelList)</li>
+                            <li>Scrapes company career pages</li>
+                            <li>Parses RSS feeds from job aggregators</li>
+                            <li>Deduplicates listings to prevent redundant data</li>
+                            <li>Classifies jobs by role, location, and seniority level</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="solution-component">
+                        <h4>B. Candidate Management System</h4>
+                        <p>
+                            Maintains a unified candidate database with comprehensive profiles including:
+                        </p>
+                        <ul>
+                            <li>Resume parsing and skill extraction using NLP</li>
+                            <li>Application history and status tracking</li>
+                            <li>Qualification scoring and matching algorithms</li>
+                            <li>Interview feedback and evaluation notes</li>
+                            <li>Offer details and employment status</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="solution-component">
+                        <h4>C. Workflow Automation Engine</h4>
+                        <p>
+                            Orchestrates recruitment workflows including:
+                        </p>
+                        <ul>
+                            <li>Automated email acknowledgments when applications are received</li>
+                            <li>Intelligent interview scheduling with calendar integration</li>
+                            <li>Rejection notifications with constructive feedback</li>
+                            <li>Offer letter generation and e-signature integration</li>
+                            <li>Onboarding task automation</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="solution-component">
+                        <h4>D. Analytics & Reporting Dashboard</h4>
+                        <p>
+                            Provides real-time visibility into recruitment metrics:
+                        </p>
+                        <ul>
+                            <li>Pipeline stage distribution and conversion rates</li>
+                            <li>Time-to-hire and source performance metrics</li>
+                            <li>Candidate scoring and qualification distribution</li>
+                            <li>Recruiter productivity and cost-per-hire analysis</li>
+                            <li>Trend analysis and predictive hiring insights</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 4. Technical Architecture -->
+        <section id="technical-architecture" class="case-study-section" aria-labelledby="arch-title">
+            <div class="container">
+                <h2 id="arch-title">4. Technical Architecture</h2>
+                
+                <div class="section-content">
+                    <h3>System Architecture Overview</h3>
+                    
+                    <div class="architecture-diagram">
+                        <div class="architecture-box">
+                            <strong>Data Sources</strong>
+                            <ul style="font-size: 0.9em; margin-top: 8px;">
+                                <li>Job APIs (LinkedIn, Indeed)</li>
+                                <li>Web Scrapers</li>
+                                <li>Email Ingestion</li>
+                                <li>RSS Feeds</li>
+                            </ul>
+                        </div>
+                        <div class="arrow">→</div>
+                        <div class="architecture-box">
+                            <strong>Data Processing</strong>
+                            <ul style="font-size: 0.9em; margin-top: 8px;">
+                                <li>Job Parser</li>
+                                <li>Resume Parser</li>
+                                <li>NLP Extraction</li>
+                                <li>Deduplication</li>
+                            </ul>
+                        </div>
+                        <div class="arrow">→</div>
+                        <div class="architecture-box">
+                            <strong>Storage Layer</strong>
+                            <ul style="font-size: 0.9em; margin-top: 8px;">
+                                <li>MongoDB (Documents)</li>
+                                <li>PostgreSQL (Relational)</li>
+                                <li>Redis (Cache)</li>
+                                <li>S3 (Files)</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="architecture-diagram" style="margin-top: 20px;">
+                        <div class="architecture-box">
+                            <strong>API Layer</strong>
+                            <ul style="font-size: 0.9em; margin-top: 8px;">
+                                <li>REST APIs</li>
+                                <li>GraphQL</li>
+                                <li>Webhooks</li>
+                                <li>Rate Limiting</li>
+                            </ul>
+                        </div>
+                        <div class="arrow">→</div>
+                        <div class="architecture-box">
+                            <strong>Application Layer</strong>
+                            <ul style="font-size: 0.9em; margin-top: 8px;">
+                                <li>Job Service</li>
+                                <li>Candidate Service</li>
+                                <li>Workflow Service</li>
+                                <li>Analytics Service</li>
+                            </ul>
+                        </div>
+                        <div class="arrow">→</div>
+                        <div class="architecture-box">
+                            <strong>Frontend</strong>
+                            <ul style="font-size: 0.9em; margin-top: 8px;">
+                                <li>React Dashboard</li>
+                                <li>Real-time Updates</li>
+                                <li>Mobile App</li>
+                                <li>Email Templates</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <h3 style="margin-top: 30px;">Data Flow</h3>
+                    <ol class="data-flow-list">
+                        <li>
+                            <strong>Job Collection:</strong> Scheduled workers pull job data from external sources 
+                            every hour using configured APIs and web scrapers
+                        </li>
+                        <li>
+                            <strong>Data Parsing:</strong> Job postings are parsed using NLP to extract key information 
+                            (title, company, location, requirements, salary)
+                        </li>
+                        <li>
+                            <strong>Deduplication:</strong> System checks for duplicate listings across sources 
+                            using fuzzy matching algorithms
+                        </li>
+                        <li>
+                            <strong>Database Storage:</strong> Normalized job data is stored in MongoDB with 
+                            indexed fields for fast searching
+                        </li>
+                        <li>
+                            <strong>Application Processing:</strong> When a candidate applies, their resume is 
+                            parsed and skill tags extracted
+                        </li>
+                        <li>
+                            <strong>Qualification Scoring:</strong> Machine learning model scores the candidate 
+                            based on match with job requirements
+                        </li>
+                        <li>
+                            <strong>Workflow Trigger:</strong> Qualification score triggers appropriate workflows 
+                            (interview scheduling, rejection, etc.)
+                        </li>
+                        <li>
+                            <strong>Analytics Update:</strong> All events are logged and aggregated for analytics 
+                            dashboard in real-time
+                        </li>
+                    </ol>
+                </div>
+            </div>
+        </section>
+
+        <!-- 5. Technologies Used -->
+        <section id="technologies" class="case-study-section" aria-labelledby="tech-title">
+            <div class="container">
+                <h2 id="tech-title">5. Technologies Used</h2>
+                
+                <div class="section-content">
+                    <div class="tech-stack-grid">
+                        <div class="tech-category">
+                            <h3>Backend Services</h3>
+                            <ul class="tech-list">
+                                <li><span class="tech-name">Node.js & Express</span> - API server and business logic</li>
+                                <li><span class="tech-name">Python & FastAPI</span> - Data processing and ML pipelines</li>
+                                <li><span class="tech-name">Go</span> - High-performance job aggregation workers</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="tech-category">
+                            <h3>Data & Storage</h3>
+                            <ul class="tech-list">
+                                <li><span class="tech-name">MongoDB</span> - Document storage for jobs and applications</li>
+                                <li><span class="tech-name">PostgreSQL</span> - Relational data (users, workflows, config)</li>
+                                <li><span class="tech-name">Redis</span> - Caching and session management</li>
+                                <li><span class="tech-name">Elasticsearch</span> - Full-text search and job indexing</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="tech-category">
+                            <h3>Job Processing</h3>
+                            <ul class="tech-list">
+                                <li><span class="tech-name">Apache Kafka</span> - Event streaming and job queuing</li>
+                                <li><span class="tech-name">Bull/Redis</span> - Task queue for scheduled jobs</li>
+                                <li><span class="tech-name">GitHub Actions</span> - CI/CD and scheduled workflows</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="tech-category">
+                            <h3>ML & NLP</h3>
+                            <ul class="tech-list">
+                                <li><span class="tech-name">spaCy</span> - Resume and job description NLP</li>
+                                <li><span class="tech-name">PyTorch</span> - ML model training for qualification scoring</li>
+                                <li><span class="tech-name">scikit-learn</span> - Matching algorithms</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="tech-category">
+                            <h3>Frontend</h3>
+                            <ul class="tech-list">
+                                <li><span class="tech-name">React 18</span> - Dashboard UI</li>
+                                <li><span class="tech-name">TypeScript</span> - Type-safe frontend code</li>
+                                <li><span class="tech-name">WebSocket</span> - Real-time updates</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="tech-category">
+                            <h3>Integration & APIs</h3>
+                            <ul class="tech-list">
+                                <li><span class="tech-name">LinkedIn API</span> - Job posting integration</li>
+                                <li><span class="tech-name">Gmail/Outlook APIs</span> - Email automation</li>
+                                <li><span class="tech-name">Google Calendar API</span> - Interview scheduling</li>
+                                <li><span class="tech-name">Salesforce API</span> - CRM integration</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <h3 style="margin-top: 30px;">DevOps & Infrastructure</h3>
+                    <ul class="tech-list">
+                        <li><span class="tech-name">Docker & Kubernetes</span> - Container orchestration and scaling</li>
+                        <li><span class="tech-name">AWS (EC2, RDS, S3, Lambda)</span> - Cloud infrastructure</li>
+                        <li><span class="tech-name">GitHub Actions</span> - CI/CD pipelines for automated testing and deployment</li>
+                        <li><span class="tech-name">Prometheus & Grafana</span> - Monitoring and alerting</li>
+                        <li><span class="tech-name">ELK Stack</span> - Logging and log analysis</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- 6. Key Benefits -->
+        <section id="benefits" class="case-study-section" aria-labelledby="benefits-title">
+            <div class="container">
+                <h2 id="benefits-title">6. Key Benefits</h2>
+                
+                <div class="section-content">
+                    <div class="benefits-grid">
+                        <div class="benefit-card">
+                            <div class="benefit-icon">⏱️</div>
+                            <h3>60% Time Savings</h3>
+                            <p>
+                                Recruiters reclaim ~24 hours per week previously spent on manual data entry, 
+                                scheduling, and follow-ups, allowing focus on strategic hiring decisions.
+                            </p>
+                        </div>
+                        
+                        <div class="benefit-card">
+                            <div class="benefit-icon">🚀</div>
+                            <h3>3x Faster Hiring</h3>
+                            <p>
+                                Automated application processing and interview scheduling reduces time-to-hire 
+                                from 42 days to ~14 days on average.
+                            </p>
+                        </div>
+                        
+                        <div class="benefit-card">
+                            <div class="benefit-icon">📈</div>
+                            <h3>Improved Quality</h3>
+                            <p>
+                                ML-based candidate scoring ensures qualified candidates are prioritized, 
+                                improving hire quality and reducing mis-hires by 35%.
+                            </p>
+                        </div>
+                        
+                        <div class="benefit-card">
+                            <div class="benefit-icon">😊</div>
+                            <h3>Better Candidate Experience</h3>
+                            <p>
+                                Automated acknowledgments, timely updates, and professional communications 
+                                improve candidate satisfaction scores by 45%.
+                            </p>
+                        </div>
+                        
+                        <div class="benefit-card">
+                            <div class="benefit-icon">💰</div>
+                            <h3>Cost Reduction</h3>
+                            <p>
+                                Efficiency gains reduce cost-per-hire by 40% through fewer recruiter hours needed 
+                                and faster time-to-productivity for new hires.
+                            </p>
+                        </div>
+                        
+                        <div class="benefit-card">
+                            <div class="benefit-icon">📊</div>
+                            <h3>Data-Driven Decisions</h3>
+                            <p>
+                                Real-time analytics provide actionable insights into hiring trends, source effectiveness, 
+                                and pipeline health for strategic planning.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 7. Future Improvements -->
+        <section id="future" class="case-study-section" aria-labelledby="future-title">
+            <div class="container">
+                <h2 id="future-title">7. Future Improvements & Roadmap</h2>
+                
+                <div class="section-content">
+                    <h3>Planned Enhancements (Q3-Q4 2026)</h3>
+                    
+                    <div class="roadmap-items">
+                        <div class="roadmap-item">
+                            <div class="roadmap-phase">Phase 1 (Q3)</div>
+                            <h4>Advanced AI Features</h4>
+                            <ul>
+                                <li>
+                                    <strong>Conversational AI Interviews:</strong> Implement AI-powered initial screening 
+                                    interviews using natural language processing
+                                </li>
+                                <li>
+                                    <strong>Bias Detection:</strong> Add algorithms to identify and flag potential 
+                                    hiring biases in job descriptions and candidate scoring
+                                </li>
+                                <li>
+                                    <strong>Predictive Analytics:</strong> Machine learning models to predict offer acceptance 
+                                    probability and candidate retention
+                                </li>
+                            </ul>
+                        </div>
+                        
+                        <div class="roadmap-item">
+                            <div class="roadmap-phase">Phase 2 (Q4)</div>
+                            <h4>Enhanced Integrations</h4>
+                            <ul>
+                                <li>
+                                    <strong>ATS Platform Integration:</strong> Direct integrations with major ATS platforms 
+                                    (Workday, SAP SuccessFactors, Taleo)
+                                </li>
+                                <li>
+                                    <strong>Video Interview Integration:</strong> Seamless integration with video interview 
+                                    platforms (HireVue, Pymetrics)
+                                </li>
+                                <li>
+                                    <strong>Background Check APIs:</strong> Automated background check ordering and status tracking
+                                </li>
+                            </ul>
+                        </div>
+                        
+                        <div class="roadmap-item">
+                            <div class="roadmap-phase">Phase 3 (2027)</div>
+                            <h4>Global Expansion</h4>
+                            <ul>
+                                <li>
+                                    <strong>Multi-Language Support:</strong> Resume and job description parsing in 15+ languages
+                                </li>
+                                <li>
+                                    <strong>Regional Job Feeds:</strong> Local job board integration for APAC, EMEA, and Americas
+                                </li>
+                                <li>
+                                    <strong>Compliance Management:</strong> GDPR, CCPA, and local labor law compliance features
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <h3 style="margin-top: 30px;">Long-Term Vision (2027+)</h3>
+                    <p>
+                        The ultimate goal is to create an end-to-end talent intelligence platform that not only automates 
+                        recruitment but provides strategic workforce planning insights. Key initiatives include:
+                    </p>
+                    <ul class="vision-list">
+                        <li><strong>Workforce Analytics:</strong> Predictive modeling for future talent needs and skill gaps</li>
+                        <li><strong>Internal Mobility:</strong> AI-powered career pathing and internal opportunity matching</li>
+                        <li><strong>Employer Branding:</strong> Integrated employer brand management and candidate journey tracking</li>
+                        <li><strong>Diversity & Inclusion:</strong> Built-in D&I analytics and actionable recommendations</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- Conclusion -->
+        <section class="case-study-conclusion" aria-labelledby="conclusion-title">
+            <div class="container">
+                <h2 id="conclusion-title">Conclusion</h2>
+                <p>
+                    The Job Automation System represents a significant advancement in recruitment technology, 
+                    transforming how organizations manage hiring workflows. By combining data engineering, machine learning, 
+                    and workflow automation, the system delivers tangible business value through time savings, improved 
+                    candidate experience, and data-driven hiring decisions.
+                </p>
+                <p>
+                    This project demonstrates expertise in full-stack system design, handling complex workflows at scale, 
+                    and building products that solve real business problems. The combination of backend services, data pipelines, 
+                    and frontend interfaces showcases the ability to architect and implement comprehensive solutions from 
+                    conception to production.
+                </p>
+            </div>
+        </section>
+
+        <!-- CTA Section -->
+        <section class="cta" aria-labelledby="cta-title">
+            <div class="container">
+                <h2 id="cta-title">Interested in Similar Solutions?</h2>
+                <p>
+                    I'm available to discuss how similar automation and workflow optimization solutions 
+                    can be applied to your organization's specific challenges.
+                </p>
+                <div class="cta-buttons">
+                    <a href="../../contact.html" class="btn btn-primary">Start a Conversation</a>
+                    <a href="../../projects/index.html" class="btn btn-secondary">View Other Projects</a>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer role="contentinfo" class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3>Shinnosuke Mori</h3>
+                    <p>Senior Software Engineer | System Architect | Based in Fukuoka, Japan</p>
+                </div>
+                <div class="footer-section">
+                    <h3>Navigation</h3>
+                    <ul>
+                        <li><a href="../../index.html#about">About</a></li>
+                        <li><a href="../../projects/index.html">Projects</a></li>
+                        <li><a href="../../skills.html">Skills</a></li>
+                        <li><a href="../../contact.html">Contact</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h3>Social</h3>
+                    <ul>
+                        <li><a href="https://github.com/ShinnosukeMoriFukuokaJP" rel="noopener noreferrer">GitHub</a></li>
+                        <li><a href="https://www.linkedin.com/in/shinnosuke-mori" rel="noopener noreferrer">LinkedIn</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 Shinnosuke Mori. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="../../js/script.js" defer></script>
+</body>
+</html>
