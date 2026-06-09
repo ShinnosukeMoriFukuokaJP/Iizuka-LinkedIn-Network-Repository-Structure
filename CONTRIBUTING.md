@@ -1,88 +1,185 @@
 # Contributing to Iizuka LinkedIn Network
 
-Thank you for your interest in contributing to the **Iizuka LinkedIn Network** — the premier professional networking and innovation hub for the **Chikuho Region** of **Fukuoka Prefecture**, Japan.
+**Iizuka LinkedIn Network** · Chikuho Region · Fukuoka Prefecture · Japan
 
-This is an open community project. No technical background is required to contribute.
+Thank you for helping build the **Chikuho Region's** most comprehensive professional ecosystem platform. This guide explains how to contribute — no technical experience required.
 
 ---
 
-## 🌟 Ways to Contribute
+## Why Your Contribution Matters
 
-### 📝 Content Contributions
-- Write articles on AI, DX, LinkedIn networking, or career development
-- Add local business resources for Iizuka City, Tagawa City, or Nogata City
-- Document DX case studies from Chikuho Region businesses
-- Share job opportunities in Fukuoka Prefecture
+Every resource added, every city page updated, and every success story shared makes this platform more valuable for the **370,000+ professionals and residents** of the Chikuho Region. You are directly contributing to regional revitalization.
 
-### 📅 Events
-- Submit upcoming events in the Chikuho Region
-- Write recaps of past events
-- Propose new event formats
+---
 
-### 🤖 AI & DX Resources
-- Add AI tools relevant to Japanese SMEs
-- Contribute tutorials for Generative AI tools
-- Share Digital Transformation implementation guides
+## What You Can Contribute
 
-### 🌐 Translation
-- Japanese ↔ English content translation
-- Localization of resources for Chikuho Region audiences
+### 📝 Content
+| Type | Where | Who |
+|------|-------|-----|
+| City information | `cities/[city].md` | Locals, business owners |
+| Company listings | `companies/[sector]/README.md` | Anyone |
+| Job postings | `jobs/[category]/README.md` | Employers, recruiters |
+| Event listings | `events/[year]/README.md` | Organizers |
+| Success stories | `success-stories/[type].md` | Professionals, founders |
+| AI resources | `resources/ai/README.md` | Practitioners |
+| DX case studies | `resources/dx/README.md` | Consultants, businesses |
+| Startup resources | `startups/README.md` | Founders, advisors |
+| Community listings | `communities/[type]/README.md` | Community leaders |
+| Research | `research/README.md` | Academics, analysts |
 
 ### 🛠️ Technical
-- Improve repository structure and navigation
-- Fix typos, broken links, and formatting issues
-- Add automation or tooling for community management
+| Type | Where |
+|------|-------|
+| Broken link fixes | Any `.md` file |
+| Typo corrections | Any `.md` file |
+| Formatting improvements | Any `.md` file |
+| New scripts | `scripts/` |
+| Translation (JP ↔ EN) | Any file |
 
 ---
 
-## 📋 Contribution Process
+## How to Contribute (Step by Step)
 
-### Step 1: Fork the Repository
+### Option A: Via GitHub (Recommended)
+
+**Step 1: Fork the repository**
+```
+https://github.com/ShinnosukeMoriFukuokaJP/Iizuka-LinkedIn-Network-Repository-Structure
+```
+Click **Fork** → **Create fork**
+
+**Step 2: Clone your fork**
 ```bash
-git clone https://github.com/ShinnosukeMoriFukuokaJP/Iizuka-LinkedIn-Network-Repository-Structure.git
+git clone https://github.com/YOUR-USERNAME/Iizuka-LinkedIn-Network-Repository-Structure.git
 cd Iizuka-LinkedIn-Network-Repository-Structure
 ```
 
-### Step 2: Create a Branch
+**Step 3: Create a branch**
 ```bash
-git checkout -b feature/your-contribution-name
+git checkout -b add/iizuka-company-listing
+# or: fix/broken-link-cities
+# or: update/tagawa-city-info
 ```
 
-### Step 3: Make Your Changes
-Follow the style guidelines below.
+**Step 4: Make your changes**
+Edit or create `.md` files. Follow the style guide below.
 
-### Step 4: Commit
+**Step 5: Commit and push**
 ```bash
 git add .
-git commit -m "Add: [brief description of your contribution]"
+git commit -m "feat: add [Company Name] to companies/ai/"
+git push origin add/iizuka-company-listing
 ```
 
-### Step 5: Open a Pull Request
-Submit your PR with a clear description of what you added and why it benefits the Chikuho Region community.
+**Step 6: Open a Pull Request**
+Go to the original repository → **Pull Requests** → **New Pull Request**
+Fill in the PR template and submit.
+
+### Option B: Edit Directly on GitHub
+
+For small fixes:
+1. Open the file on GitHub
+2. Click the ✏️ pencil icon
+3. Make changes
+4. Click **Propose changes**
+5. Submit the Pull Request
+
+### Option C: Submit via Issue
+
+Not comfortable with Git? Open a GitHub Issue with:
+- Label: `resource`, `city-content`, `event`, or `bug`
+- Your content or suggestion
+- A maintainer will add it for you
+
+### Option D: Email
+
+Send contributions to [community@iizuka-linkedin-network.org](mailto:community@iizuka-linkedin-network.org)
 
 ---
 
-## ✅ Style Guidelines
+## Style Guide
 
-- Use clear, professional English or Japanese (both welcome)
-- Use sentence case for headings
-- Include sources for statistics and claims
-- Keep content relevant to the Chikuho Region, Fukuoka Prefecture, or regional professionals broadly
-- Avoid promotional content for specific commercial products unless genuinely useful
+### Language
+- English and Japanese are equally welcome
+- Bilingual content (EN + JP) is ideal for city and resource pages
+- Be professional, clear, and concise
+
+### Markdown Formatting
+- Use `##` for main sections, `###` for subsections
+- Use tables for structured data (companies, tools, events)
+- Add breadcrumb navigation at top: `[← Parent](../README.md)`
+- Add footer: `*Iizuka LinkedIn Network · [Section] · Chikuho Region · Fukuoka Prefecture · Japan*`
+
+### Links
+- Always use relative links for internal navigation: `[Cities](../cities/README.md)`
+- Verify all links work before submitting
+- External links should open to trusted sources only
+
+### Content Standards
+- No spam, self-promotion without community value, or advertising
+- Factual claims should include sources
+- Company and job listings must be real and current
+- Event listings must include date, format, and contact information
 
 ---
 
-## 🙏 Recognition
+## Commit Message Format
 
-All contributors are listed in our Contributors section and may be featured in:
-- Monthly newsletter spotlights
-- LinkedIn Group member highlights
-- Annual community impact report
+```
+feat: add [description]       # New content or feature
+fix: correct [description]    # Bug fix or correction
+update: improve [description] # Enhancement to existing content
+docs: clarify [description]   # Documentation improvement
+translate: [file] JP→EN       # Translation work
+```
 
 ---
 
-## 💬 Questions?
+## Pull Request Review Process
 
-Open a GitHub Issue or email [community@iizuka-linkedin-network.org](mailto:community@iizuka-linkedin-network.org)
+1. A maintainer reviews your PR within **7 days**
+2. They may request minor changes
+3. Once approved, it's merged to `main`
+4. Your contribution is live immediately
 
-*Thank you for helping build the Chikuho Region's knowledge hub.*
+---
+
+## Contributor Recognition
+
+All contributors receive:
+- ✅ Listed in repository contributors
+- ✅ Monthly newsletter spotlight (notable contributions)
+- ✅ LinkedIn Group recognition post
+- ✅ Credit in the Annual Chikuho Innovation Report
+
+---
+
+## First Time?
+
+Look for issues labeled `good first issue` or `help wanted`. These are specifically curated for new contributors.
+
+**Easy first contributions:**
+- Add your company or employer to the companies directory
+- Add an upcoming event you know about
+- Fix a typo you noticed
+- Translate a section to Japanese or English
+
+---
+
+## Code of Conduct
+
+All contributors must follow our [Code of Conduct](CODE_OF_CONDUCT.md). We maintain a welcoming, professional environment for everyone.
+
+---
+
+## Questions?
+
+- 💬 Open a GitHub Issue with label `question`
+- 💼 Post in the [LinkedIn Group](https://www.linkedin.com/groups/)
+- 📧 Email [community@iizuka-linkedin-network.org](mailto:community@iizuka-linkedin-network.org)
+
+---
+
+*Thank you for building the Chikuho Region's future.*
+*Iizuka LinkedIn Network · Chikuho Region · Fukuoka Prefecture · Japan*
