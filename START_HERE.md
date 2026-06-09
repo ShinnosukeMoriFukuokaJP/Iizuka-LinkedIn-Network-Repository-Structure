@@ -1,105 +1,116 @@
 # Start Here
 
-**Welcome to Iizuka LinkedIn Network**
-The professional networking and innovation hub for the **Chikuho Region** of **Fukuoka Prefecture**, Japan.
+**Welcome to Iizuka LinkedIn Network**  
+The professional ecosystem platform for the **Chikuho Region** of **Fukuoka Prefecture**, Japan.
 
-This page will get you oriented in under 5 minutes.
-
----
-
-## Step 1: Understand What This Is
-
-**Iizuka LinkedIn Network** is a free, open-source community platform combining:
-
-- 📚 A structured knowledge hub (this GitHub repository)
-- 💼 A professional network (LinkedIn Group)
-- 📅 Real-world events (Chikuho Region and online)
-- 🤖 AI and DX learning resources
-- 🚀 Entrepreneur and career development support
-
-It is built for professionals, students, entrepreneurs, and business owners in **Iizuka City**, **Tagawa City**, **Nogata City**, and the broader **Chikuho Region** — and anyone globally who cares about regional innovation.
+This page gets you oriented in 5 minutes.
 
 ---
 
-## Step 2: Choose Your Path
+## What Is This?
 
-### I want to learn about AI
-→ Go to [AI_RESOURCES.md](AI_RESOURCES.md)
-→ Join the LinkedIn Group and introduce yourself
-→ Sign up for the newsletter
+**Iizuka LinkedIn Network (ILN)** is a free, open-source platform that functions as:
 
-### I want to understand Digital Transformation
-→ Go to [DX_RESOURCES.md](DX_RESOURCES.md)
-→ Check the DX implementation roadmap for SMEs
+| Layer | What It Is |
+|-------|------------|
+| 📚 Knowledge Base | Wikipedia-style documentation of the Chikuho professional ecosystem |
+| 💼 Network | LinkedIn Group for regional professionals, founders, and students |
+| 🤖 AI Hub | Structured learning from zero to AI-powered business |
+| 💻 DX Hub | Digital transformation guides for Chikuho Region SMEs |
+| 🚀 Startup Hub | Resources, funding, mentors, and community for founders |
+| 🎯 Career Hub | LinkedIn strategy, job board, and career pathways |
+| 🌱 Community | Events, volunteer opportunities, and regional collaboration |
 
-### I want to grow my career or find a job
-→ Read the Career Development Pathway in [README.md](README.md)
-→ Optimize your LinkedIn profile using our guide
-→ Join the LinkedIn Group to connect with local employers
-
-### I want to grow my business or start a startup
-→ Read the Entrepreneur Pathway in [README.md](README.md)
-→ Attend the next Startup Pitch Night in [EVENTS.md](EVENTS.md)
-→ Connect with mentors through the LinkedIn Group
-
-### I want to contribute to the community
-→ Read [CONTRIBUTING.md](CONTRIBUTING.md)
-→ Check open GitHub Issues for contribution opportunities
-→ Introduce yourself in the LinkedIn Group
+Everything is **free**. Always.
 
 ---
 
-## Step 3: Join the LinkedIn Group
+## Choose Your Path
 
-**[Join Now →](https://www.linkedin.com/groups/)** *(link to be activated)*
+### 🤖 I want to learn AI
+→ [AI Resources](resources/ai/README.md) — Tools, courses, tutorials  
+→ [AI Jobs](jobs/ai/README.md) — AI roles in Fukuoka Prefecture  
+→ [AI Companies](companies/ai/README.md) — Who's hiring
 
-When you join, please post a brief introduction:
-- Your name and city
-- Your professional background
-- One thing you want to learn or contribute
+### 💻 I want to understand DX
+→ [DX Resources](resources/dx/README.md) — Tools, guides, case studies  
+→ [DX Jobs](jobs/dx/README.md) — DX roles available now
 
----
+### 💼 I want to grow my career
+→ [Career Resources](resources/career/README.md) — LinkedIn guides, resume tips  
+→ [LinkedIn Guides](resources/career/linkedin-guides.md) — Master LinkedIn in Japan  
+→ [Jobs Board](jobs/README.md) — All current listings  
+→ [Success Stories: Career Pivots](success-stories/careers.md) — Real stories
 
-## Step 4: Explore the Repository
+### 🚀 I want to start or grow a business
+→ [Startup Hub](startups/README.md) — Complete founder resources  
+→ [Funding Guide](startups/funding.md) — Grants and investment  
+→ [Legal Basics](startups/legal.md) — Business registration in Japan  
+→ [Free Tools](startups/tools.md) — ¥0 startup stack  
+→ [Mentor Network](startups/mentors.md) — Find a mentor
 
-| File | What It Contains |
-|------|-----------------|
-| [README.md](README.md) | Full overview, all pathways, mission, vision |
-| [AI_RESOURCES.md](AI_RESOURCES.md) | AI tools, courses, and articles |
-| [DX_RESOURCES.md](DX_RESOURCES.md) | DX tools, guides, and case studies |
-| [EVENTS.md](EVENTS.md) | Upcoming and recurring events |
-| [MEMBERSHIP.md](MEMBERSHIP.md) | How to join and what to expect |
-| [ROADMAP.md](ROADMAP.md) | Where this community is going |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | How to contribute content or code |
-| [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | Community standards |
+### 🏙️ I want to explore my city
+→ [Iizuka City](cities/iizuka.md) · [Tagawa City](cities/tagawa.md) · [Nogata City](cities/nogata.md)  
+→ [All 11 Cities](cities/README.md) — Kama, Miyawaka, Keisen, Kotake, Soeda, Kawara, Fukuchi, Oto
 
----
-
-## Step 5: Subscribe to the Newsletter
-
-Get monthly updates on:
-- AI and DX news for regional businesses
-- Career and LinkedIn tips
-- Upcoming events in the Chikuho Region
-- Member spotlights and success stories
-
-**[Subscribe →](#)** *(link to be activated)*
+### 🤝 I want to contribute
+→ [CONTRIBUTING.md](CONTRIBUTING.md) — How to add resources, cities, jobs, events  
+→ [Open Issues](https://github.com/ShinnosukeMoriFukuokaJP/Iizuka-LinkedIn-Network-Repository-Structure/issues) — Find something to work on
 
 ---
 
-## Step 6: Star This Repository
+## Quick Start: 5 Actions in 5 Minutes
 
-If this community is useful to you, please ⭐ star this repository on GitHub. It helps more people in the **Chikuho Region** discover us.
-
----
-
-## Questions?
-
-- Open a GitHub Issue
-- Post in the LinkedIn Group
-- Email [community@iizuka-linkedin-network.org](mailto:community@iizuka-linkedin-network.org)
+| # | Action | Time | Link |
+|---|--------|------|------|
+| 1 | ⭐ Star this repository | 10 sec | [GitHub](https://github.com/ShinnosukeMoriFukuokaJP/Iizuka-LinkedIn-Network-Repository-Structure) |
+| 2 | 💼 Join LinkedIn Group | 2 min | [LinkedIn](https://www.linkedin.com/groups/) |
+| 3 | 📬 Subscribe to newsletter | 30 sec | [Newsletter](#) |
+| 4 | 🏙️ Read your city's page | 2 min | [Cities](cities/README.md) |
+| 5 | 🤝 Introduce yourself | 1 min | Post in LinkedIn Group |
 
 ---
 
-*Welcome to the Chikuho Region's innovation community.*
-*Iizuka LinkedIn Network · Fukuoka Prefecture · Japan*
+## Repository Map
+
+```
+📄 README.md            → Full overview, mission, all pathways
+📄 START_HERE.md        → You are here
+📄 CONTRIBUTING.md      → How to contribute
+📄 ROADMAP.md           → Where we're going
+📄 MEMBERSHIP.md        → Join the community
+📄 EVENTS.md            → Event calendar
+
+🏙️ cities/              → 11 Chikuho Region city profiles
+🏢 companies/           → AI, tech, manufacturing, healthcare, education
+💼 jobs/                → Remote, AI, DX, local, internships, volunteer
+🤝 communities/         → Professional, AI, startup, student groups
+📅 events/              → 2026–2030 event calendar
+🚀 startups/            → Founder resources (funding, legal, tools, mentors)
+🏆 success-stories/     → Real stories from Chikuho professionals
+🎓 education/           → Universities, courses, certifications
+🏛️ government/          → Grants, programs, support
+💚 nonprofits/          → NPOs and community organizations
+📰 media/               → Regional press and publications
+🔬 research/            → Academic research and data
+📚 resources/           → AI, DX, career, startup learning hubs
+📖 docs/                → SEO, growth, and automation strategy
+🛠️ scripts/             → Automation tools
+```
+
+---
+
+## Get Help
+
+| Channel | For |
+|---------|-----|
+| 💬 [GitHub Issues](https://github.com/ShinnosukeMoriFukuokaJP/Iizuka-LinkedIn-Network-Repository-Structure/issues) | Technical questions, bug reports |
+| 💼 LinkedIn Group | Professional networking, community questions |
+| 📧 [Email](mailto:community@iizuka-linkedin-network.org) | Partnerships, press, general inquiries |
+
+---
+
+*You've just joined the Chikuho Region's innovation ecosystem.*  
+*Welcome. Let's build something great together.*
+
+*Iizuka LinkedIn Network · Chikuho Region · Fukuoka Prefecture · Japan*
