@@ -26,7 +26,7 @@ Membership is **permanently free**. No paywalls. No paid tiers. No hidden fees.
 ⭐ [Star this repository](https://github.com/ShinnosukeMoriFukuokaJP/Iizuka-LinkedIn-Network-Repository-Structure) to stay updated.
 
 ### Step 2: Join the LinkedIn Group
-**[→ Join Now](https://www.linkedin.com/groups/)** *(link to be activated)*
+**[→ Join Now](https://www.linkedin.com/groups/14722875)** *(link to be activated)*
 
 Answer the three entry questions:
 1. What city or region are you based in?
