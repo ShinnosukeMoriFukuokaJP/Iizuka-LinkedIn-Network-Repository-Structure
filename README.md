@@ -174,3 +174,5 @@ This repository is the central node of a content cluster targeting:
 
 *Iizuka LinkedIn Network · Chikuho Region · Fukuoka Prefecture · Japan*
 *Open Source · Community Driven · Globally Minded*
+
+[免責事項 / Legal Disclaimer](docs/legal-disclaimer.md)
