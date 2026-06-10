@@ -122,7 +122,7 @@ Keisen Town's transformation roadmap aligns with national **Regional Revitalizat
 
 Join the **Iizuka LinkedIn Network** LinkedIn Group and mention Keisen Town in your introduction post.
 
-→ [Join LinkedIn Group](https://www.linkedin.com/groups/) · [All Events](../events/README.md)
+→ [Join LinkedIn Group](https://www.linkedin.com/groups/14722875) · [All Events](../events/README.md)
 
 ---
 
