@@ -176,7 +176,7 @@ All contributors must follow our [Code of Conduct](CODE_OF_CONDUCT.md). We maint
 ## Questions?
 
 - 💬 Open a GitHub Issue with label `question`
-- 💼 Post in the [LinkedIn Group](https://www.linkedin.com/groups/)
+- 💼 Post in the [LinkedIn Group](https://www.linkedin.com/groups/14722875)
 - 📧 Email [community@iizuka-linkedin-network.org](mailto:community@iizuka-linkedin-network.org)
 
 ---
