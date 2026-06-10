@@ -8,12 +8,13 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 [![Contributors](https://img.shields.io/github/contributors/ShinnosukeMoriFukuokaJP/Iizuka-LinkedIn-Network-Repository-Structure)](https://github.com/ShinnosukeMoriFukuokaJP/Iizuka-LinkedIn-Network-Repository-Structure/graphs/contributors)
+[![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-Live-brightgreen)](https://shinnosukemorifukuokajp.github.io/Iizuka-LinkedIn-Network-Repository-Structure/)
 
 **Discover • Connect • Build • Innovate**
 
 *Empowering Iizuka City, Tagawa City, Nogata City, and the Chikuho Region through open knowledge, professional networking, AI, DX, and entrepreneurship*
 
-[🚀 Start Here](START_HERE.md) • [🤖 AI Resources](resources/ai/README.md) • [💼 Jobs](jobs/README.md) • [🏙️ Cities](cities/README.md) • [📅 Events](events/README.md) • [🤝 Join](MEMBERSHIP.md)
+[🌐 Website](https://shinnosukemorifukuokajp.github.io/Iizuka-LinkedIn-Network-Repository-Structure/) • [🚀 Start Here](START_HERE.md) • [🤖 AI Resources](resources/ai/README.md) • [💼 Jobs](jobs/README.md) • [🏙️ Cities](cities/README.md) • [📅 Events](events/README.md) • [🤝 Join](MEMBERSHIP.md)
 
 </div>
 
