@@ -158,7 +158,7 @@ This repository is the central node of a content cluster targeting:
 ## Get Involved
 
 - ⭐ **Star** this repository
-- 💼 **[Join LinkedIn Group →](https://www.linkedin.com/groups/)** *(link to be activated)*
+- 💼 **[Join LinkedIn Group →](https://www.linkedin.com/groups/14722875)** *(link to be activated)*
 - 🤝 **[Contribute →](CONTRIBUTING.md)**
 - 📬 **[Newsletter →](#)**
 - 📧 **[Contact →](mailto:community@iizuka-linkedin-network.org)**
