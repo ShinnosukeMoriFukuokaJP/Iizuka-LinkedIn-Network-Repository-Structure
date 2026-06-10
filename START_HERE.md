@@ -64,7 +64,7 @@ Everything is **free**. Always.
 | # | Action | Time | Link |
 |---|--------|------|------|
 | 1 | ⭐ Star this repository | 10 sec | [GitHub](https://github.com/ShinnosukeMoriFukuokaJP/Iizuka-LinkedIn-Network-Repository-Structure) |
-| 2 | 💼 Join LinkedIn Group | 2 min | [LinkedIn](https://www.linkedin.com/groups/) |
+| 2 | 💼 Join LinkedIn Group | 2 min | [LinkedIn](https://www.linkedin.com/groups/14722875) |
 | 3 | 📬 Subscribe to newsletter | 30 sec | [Newsletter](#) |
 | 4 | 🏙️ Read your city's page | 2 min | [Cities](cities/README.md) |
 | 5 | 🤝 Introduce yourself | 1 min | Post in LinkedIn Group |
