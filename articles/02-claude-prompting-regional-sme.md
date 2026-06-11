@@ -2,7 +2,7 @@
 title: "Claudeで地方中小企業のDXを支援する——筑豊地域での実践プロンプト集"
 emoji: "🤖"
 type: "tech"
-topics: ["Claude", "AI", "DX", "プロンプトエンジニアリング", "中小企業"]
+topics: ["Claude", "AI", "DX", "prompt", "SME"]
 published: true
 ---
 
