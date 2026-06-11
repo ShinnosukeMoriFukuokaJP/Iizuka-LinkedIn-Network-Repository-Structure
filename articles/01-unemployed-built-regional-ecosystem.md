@@ -2,7 +2,7 @@
 title: "無職がClaude（AI）だけで日本初の地域エコシステムを作った話——ゼロ円・一人・飯塚市から"
 emoji: "⛏️"
 type: "idea"
-topics: ["AI", "Claude", "地方創生", "GitHub", "OpenSource"]
+topics: ["AI", "Claude", "regional", "GitHub", "OpenSource"]
 published: true
 ---
 
