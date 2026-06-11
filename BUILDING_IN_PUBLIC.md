@@ -43,6 +43,15 @@
 
 ---
 
+
+## 📝 Zenn記事（公開中）
+
+| 記事 | URL |
+|------|-----|
+| 無職がClaude（AI）だけで日本初の地域エコシステムを作った話 | [https://zenn.dev/articles/01-unemployed-built-regional-ecosystem](https://zenn.dev/articles/01-unemployed-built-regional-ecosystem) |
+| Claudeで地方中小企業のDXを支援する | [https://zenn.dev/articles/02-claude-prompting-regional-sme](https://zenn.dev/articles/02-claude-prompting-regional-sme) |
+| GitHubを地域コミュニティハブとして使う | 明日公開予定 |
+
 ## これからやること（リアルタイム更新）
 
 - [ ] 福岡県内で仕事を探す
