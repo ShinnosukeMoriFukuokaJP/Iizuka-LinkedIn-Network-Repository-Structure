@@ -166,6 +166,14 @@ This repository is the central node of a content cluster targeting:
 
 ---
 
+
+## 📝 Zenn Articles
+
+| 記事 | リンク |
+|------|--------|
+| 無職がClaude（AI）だけで日本初の地域エコシステムを作った話 | [→ Zenn](https://zenn.dev/articles/01-unemployed-built-regional-ecosystem) |
+| Claudeで地方中小企業のDXを支援する——筑豊地域での実践プロンプト集 | [→ Zenn](https://zenn.dev/articles/02-claude-prompting-regional-sme) |
+
 ## License
 
 [MIT License](LICENSE) — Free to use, fork, and adapt for any regional community worldwide.
