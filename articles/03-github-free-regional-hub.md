@@ -2,7 +2,7 @@
 title: "GitHubを地域コミュニティハブとして使う——エンジニアでない人でもできる方法"
 emoji: "🏔️"
 type: "idea"
-topics: ["GitHub", "コミュニティ", "地方創生", "オープンソース", "非エンジニア"]
+topics: ["GitHub", "community", "regional", "OpenSource", "beginner"]
 published: true
 ---
 
