@@ -1,0 +1,151 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Semgrep Custom Rules — SOC Security
+# Repository: Iizuka LinkedIn Network
+# ─────────────────────────────────────────────────────────────────────────────
+
+rules:
+
+  # ─── CRITICAL: eval() usage ────────────────────────────────────────────────
+  - id: unsafe-eval-usage
+    patterns:
+      - pattern: eval(...)
+    message: |
+      🚨 CRITICAL: eval() detected. This enables arbitrary code execution.
+      An attacker who controls the input can execute any JavaScript.
+      Replace with JSON.parse() for data, or a safe expression parser.
+    languages: [javascript, typescript]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-95"
+      owasp: "A1:2021 - Injection"
+      soc_severity: CRITICAL
+
+  # ─── CRITICAL: innerHTML with user data ────────────────────────────────────
+  - id: xss-innerhtml
+    patterns:
+      - pattern: $EL.innerHTML = $USER_DATA
+    message: |
+      🚨 CRITICAL: Direct innerHTML assignment may cause XSS.
+      Use textContent for text, or DOMPurify.sanitize() before innerHTML.
+    languages: [javascript, typescript]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-79"
+      owasp: "A3:2021 - Injection"
+      soc_severity: CRITICAL
+
+  # ─── HIGH: document.write ──────────────────────────────────────────────────
+  - id: xss-document-write
+    patterns:
+      - pattern: document.write(...)
+    message: |
+      🔴 HIGH: document.write() can enable XSS attacks.
+      Use DOM manipulation methods (createElement, appendChild) instead.
+    languages: [javascript, typescript]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-79"
+      soc_severity: HIGH
+
+  # ─── HIGH: Open redirect ───────────────────────────────────────────────────
+  - id: open-redirect-location
+    patterns:
+      - pattern: window.location = $URL
+      - pattern: window.location.href = $URL
+      - pattern: location.replace($URL)
+    message: |
+      🔴 HIGH: Potential open redirect vulnerability.
+      Validate that $URL is an allowed internal URL before redirect.
+    languages: [javascript, typescript]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-601"
+      owasp: "A1:2021"
+      soc_severity: HIGH
+
+  # ─── HIGH: Hardcoded secrets pattern ───────────────────────────────────────
+  - id: hardcoded-secret-assignment
+    patterns:
+      - pattern: |
+          const $KEY = "..."
+      - metavariable-regex:
+          metavariable: $KEY
+          regex: '(?i)(api_key|apikey|secret|token|password|passwd|credential)'
+    message: |
+      🔴 HIGH: Potential hardcoded secret in variable '$KEY'.
+      Use environment variables or GitHub Secrets instead.
+    languages: [javascript, typescript, python]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-798"
+      soc_severity: HIGH
+
+  # ─── MEDIUM: SSRF risk via fetch ───────────────────────────────────────────
+  - id: ssrf-risk-fetch
+    patterns:
+      - pattern: fetch($URL, ...)
+      - pattern: axios.get($URL, ...)
+      - pattern: axios.post($URL, ...)
+    message: |
+      🟡 MEDIUM: HTTP request with potentially user-controlled URL.
+      Validate URL against allowlist to prevent SSRF attacks.
+    languages: [javascript, typescript]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-918"
+      owasp: "A10:2021"
+      soc_severity: MEDIUM
+
+  # ─── MEDIUM: Python exec() ─────────────────────────────────────────────────
+  - id: python-exec
+    patterns:
+      - pattern: exec(...)
+    message: |
+      🟡 MEDIUM: exec() enables arbitrary code execution.
+      Avoid exec() with user-controlled input.
+    languages: [python]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-78"
+      soc_severity: MEDIUM
+
+  # ─── MEDIUM: Python subprocess with shell=True ─────────────────────────────
+  - id: python-subprocess-shell
+    patterns:
+      - pattern: subprocess.run($CMD, ..., shell=True, ...)
+      - pattern: subprocess.call($CMD, ..., shell=True, ...)
+      - pattern: os.system(...)
+    message: |
+      🟡 MEDIUM: Command injection risk with shell=True or os.system().
+      Use subprocess with list arguments and shell=False.
+    languages: [python]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-78"
+      owasp: "A3:2021"
+      soc_severity: MEDIUM
+
+  # ─── LOW: console.log in production ────────────────────────────────────────
+  - id: console-log-sensitive
+    patterns:
+      - pattern: console.log($VAR)
+      - metavariable-regex:
+          metavariable: $VAR
+          regex: '(?i)(token|key|secret|password|auth|credential)'
+    message: |
+      ⚪ LOW: Potential sensitive data logging via console.log().
+      Ensure no secrets are logged in production.
+    languages: [javascript, typescript]
+    severity: INFO
+    metadata:
+      category: security
+      cwe: "CWE-532"
+      soc_severity: LOW
