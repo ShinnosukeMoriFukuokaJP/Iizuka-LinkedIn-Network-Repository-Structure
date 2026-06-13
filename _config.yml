@@ -1,0 +1,29 @@
+# Iizuka LinkedIn Network — Jekyll Configuration
+title: "Iizuka LinkedIn Network"
+description: "筑豊地域プロフェッショナルネットワーク | Chikuho Region Professional Ecosystem"
+url: "https://shinnosukemorifukuokajp.github.io"
+baseurl: "/Iizuka-LinkedIn-Network-Repository-Structure"
+
+# Theme
+theme: jekyll-theme-minimal
+
+# Author
+author:
+  name: ShinnosukeMoriFukuokaJP
+  url: https://github.com/ShinnosukeMoriFukuokaJP
+
+# Links
+linkedin_group: "https://www.linkedin.com/groups/14722875"
+github_repo: "https://github.com/ShinnosukeMoriFukuokaJP/Iizuka-LinkedIn-Network-Repository-Structure"
+
+# Markdown
+markdown: kramdown
+highlighter: rouge
+
+# Exclude from build
+exclude:
+  - .env
+  - .env.example
+  - "*.py"
+  - "automation/"
+  - "node_modules/"
