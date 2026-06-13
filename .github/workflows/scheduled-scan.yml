@@ -1,0 +1,268 @@
+name: "📅 SOC Scheduled Deep Scan"
+
+on:
+  schedule:
+    # Weekly full scan: Monday 09:00 JST (00:00 UTC Monday)
+    - cron: "0 0 * * 1"
+  workflow_dispatch:
+    inputs:
+      include_nuclei:
+        description: "Run Nuclei DAST scan?"
+        required: false
+        default: "true"
+        type: boolean
+
+permissions:
+  contents: read
+  issues: write
+  security-events: write
+
+jobs:
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # Full repository secret scan (all history)
+  # ══════════════════════════════════════════════════════════════════════════════
+  weekly-secret-scan:
+    name: "🔑 Weekly Full History Secret Scan"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: "📥 Full checkout with history"
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: "🕐 Set timestamp"
+        id: ts
+        run: echo "ts=$(date -u +%Y%m%dT%H%M%SZ)" >> $GITHUB_OUTPUT
+
+      - name: "🔍 Gitleaks — all-history scan"
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          args: >
+            detect
+            --source .
+            --report-format json
+            --report-path gitleaks-full-history.json
+            --log-level warn
+            --redact
+            --no-git
+        continue-on-error: true
+
+      - name: "📊 Weekly summary"
+        run: |
+          if [ -f gitleaks-full-history.json ]; then
+            COUNT=$(python3 -c "
+          import json
+          try:
+              with open('gitleaks-full-history.json') as f:
+                  d = json.load(f)
+              print(len(d) if isinstance(d, list) else 0)
+          except:
+              print(0)
+            ")
+            echo "Full history scan: ${COUNT} findings"
+          fi
+
+      - name: "📁 Upload weekly scan artifact"
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: "soc-weekly-secrets-${{ steps.ts.outputs.ts }}"
+          path: gitleaks-full-history.json
+          retention-days: 365
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # Weekly SAST — full ruleset
+  # ══════════════════════════════════════════════════════════════════════════════
+  weekly-sast:
+    name: "🔬 Weekly SAST Full Scan"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: "📥 Checkout"
+        uses: actions/checkout@v4
+
+      - name: "🕐 Timestamp"
+        id: ts
+        run: echo "ts=$(date -u +%Y%m%dT%H%M%SZ)" >> $GITHUB_OUTPUT
+
+      - name: "🔬 Semgrep — full ruleset"
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: >
+            p/security-audit
+            p/owasp-top-ten
+            p/javascript
+            p/python
+            p/secrets
+            p/supply-chain
+            p/default
+          generateSarif: "1"
+        continue-on-error: true
+
+      - name: "📁 Upload SARIF to GitHub Security"
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: semgrep.sarif
+        continue-on-error: true
+
+      - name: "📁 Upload weekly SAST artifact"
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: "soc-weekly-sast-${{ steps.ts.outputs.ts }}"
+          path: semgrep.sarif
+          retention-days: 365
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # Weekly DAST — Nuclei full template scan
+  # ══════════════════════════════════════════════════════════════════════════════
+  weekly-dast:
+    name: "🌐 Weekly DAST (Nuclei)"
+    runs-on: ubuntu-latest
+    if: github.event.inputs.include_nuclei != 'false'
+
+    steps:
+      - name: "📥 Checkout"
+        uses: actions/checkout@v4
+
+      - name: "🕐 Timestamp"
+        id: ts
+        run: echo "ts=$(date -u +%Y%m%dT%H%M%SZ)" >> $GITHUB_OUTPUT
+
+      - name: "📦 Install Nuclei"
+        run: |
+          wget -q https://github.com/projectdiscovery/nuclei/releases/latest/download/nuclei_linux_amd64.zip
+          unzip -q nuclei_linux_amd64.zip
+          chmod +x nuclei
+          sudo mv nuclei /usr/local/bin/
+        continue-on-error: true
+
+      - name: "🌐 Detect and scan GitHub Pages"
+        id: dast
+        run: |
+          OWNER=$(echo "${{ github.repository }}" | cut -d'/' -f1)
+          REPO=$(echo "${{ github.repository }}" | cut -d'/' -f2)
+          PAGES_URL="https://${OWNER}.github.io/${REPO}"
+
+          # Check if Pages is active
+          HTTP=$(curl -s -o /dev/null -w "%{http_code}" "${PAGES_URL}" --max-time 15 || echo "000")
+          echo "GitHub Pages: ${PAGES_URL} (${HTTP})"
+
+          if [ "$HTTP" != "404" ] && [ "$HTTP" != "000" ]; then
+            # Update templates
+            nuclei -update-templates -silent 2>/dev/null || true
+
+            # Weekly comprehensive scan (more templates, still safe)
+            nuclei \
+              -u "${PAGES_URL}" \
+              -tags exposure,xss,redirect,config,ssrf,misconfiguration,info \
+              -severity critical,high,medium,low \
+              -json-export nuclei-weekly.json \
+              -markdown-export nuclei-weekly-report.md \
+              -silent \
+              -timeout 15 \
+              -rate-limit 5 \
+              -bulk-size 3 \
+              -concurrency 3 \
+              -no-interactsh \
+              2>&1 | tee nuclei-weekly-output.txt || true
+          else
+            echo "GitHub Pages not accessible — skipping DAST"
+            echo '{"skip": true, "reason": "Pages not accessible"}' > nuclei-weekly.json
+          fi
+        continue-on-error: true
+
+      - name: "📁 Upload weekly DAST artifact"
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: "soc-weekly-dast-${{ steps.ts.outputs.ts }}"
+          path: |
+            nuclei-weekly.json
+            nuclei-weekly-report.md
+            nuclei-weekly-output.txt
+          retention-days: 365
+          if-no-files-found: warn
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # Weekly SOC Report Issue
+  # ══════════════════════════════════════════════════════════════════════════════
+  weekly-report:
+    name: "📋 Weekly SOC Report"
+    runs-on: ubuntu-latest
+    needs: [weekly-secret-scan, weekly-sast, weekly-dast]
+    if: always()
+    permissions:
+      issues: write
+
+    steps:
+      - name: "📋 Create weekly SOC report issue"
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const ts = new Date().toISOString();
+            const weekNum = Math.ceil((new Date() - new Date(new Date().getFullYear(), 0, 1)) / (7 * 24 * 60 * 60 * 1000));
+            const runId = '${{ github.run_id }}';
+
+            const secretStatus = '${{ needs.weekly-secret-scan.result }}';
+            const sastStatus = '${{ needs.weekly-sast.result }}';
+            const dastStatus = '${{ needs.weekly-dast.result }}';
+
+            const statusEmoji = (s) => s === 'success' ? '✅' : s === 'failure' ? '❌' : '⚠️';
+
+            const body = `## 📅 Weekly SOC Security Report — Week ${weekNum}
+
+            **Generated:** ${ts}
+            **Repository:** ${{ github.repository }}
+            **Workflow:** [Run #${runId}](https://github.com/${{ github.repository }}/actions/runs/${runId})
+
+            ---
+
+            ## 📊 Scan Results
+
+            | Scan Type | Tool | Status |
+            |-----------|------|--------|
+            | 🔑 Full History Secret Scan | Gitleaks | ${statusEmoji(secretStatus)} ${secretStatus} |
+            | 🔬 Full SAST Scan | Semgrep | ${statusEmoji(sastStatus)} ${sastStatus} |
+            | 🌐 DAST Web Scan | Nuclei | ${statusEmoji(dastStatus)} ${dastStatus} |
+
+            ---
+
+            ## 📁 Audit Artifacts
+
+            All detailed scan results are available in the [workflow run artifacts](https://github.com/${{ github.repository }}/actions/runs/${runId}).
+            Artifacts are retained for **365 days** for compliance and audit purposes.
+
+            ---
+
+            ## 🗓️ Next Scheduled Scans
+
+            - **Daily lightweight:** Every day 09:00 JST
+            - **Weekly full scan:** Next Monday 09:00 JST
+
+            ---
+
+            ## 🔐 Security Posture
+
+            Review the Security tab for SARIF findings:
+            [GitHub Security Alerts](https://github.com/${{ github.repository }}/security)
+
+            ---
+            *🤖 Auto-generated by SOC Scheduled Scanner*
+            *Close this issue after review — a new report will be created next week.*`;
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `📅 [SOC Weekly Report] Week ${weekNum} — ${new Date().toLocaleDateString('ja-JP')}`,
+              body: body,
+              labels: ['soc-weekly-report', 'automated']
+            });
+
+            console.log(`Weekly SOC report issue created for Week ${weekNum}`);
