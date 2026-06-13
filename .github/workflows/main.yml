@@ -1,0 +1,31 @@
+name: AI Runner
+
+on:
+  workflow_dispatch:   # 手動実行できる
+
+jobs:
+  run-ai:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: setup python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: install dependencies
+        run: pip install openai
+
+      - name: run script
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: python main.py
+
+      - name: upload result
+        uses: actions/upload-artifact@v4
+        with:
+          name: output
+          path: output.txt
