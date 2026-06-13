@@ -1,0 +1,770 @@
+name: "🛡️ SOC Main Security Scan"
+
+on:
+  push:
+    branches: ["main", "master", "develop"]
+  schedule:
+    # Daily lightweight scan: 09:00 JST (00:00 UTC)
+    - cron: "0 0 * * *"
+    # Weekly full scan: Monday 09:00 JST
+    - cron: "0 0 * * 1"
+  workflow_dispatch:
+    inputs:
+      scan_mode:
+        description: "Scan mode (full / quick)"
+        required: false
+        default: "full"
+        type: choice
+        options:
+          - full
+          - quick
+
+# ─── Minimal permissions (least-privilege principle) ───────────────────────────
+permissions:
+  contents: read
+  issues: write
+  security-events: write
+  actions: read
+
+env:
+  SOC_REPO: ${{ github.repository }}
+  SOC_RUN_ID: ${{ github.run_id }}
+  SOC_TIMESTAMP: ""  # set in job step
+  SCAN_MODE: ${{ github.event.inputs.scan_mode || 'full' }}
+
+# ─── DETECTION LAYER ───────────────────────────────────────────────────────────
+jobs:
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # JOB 1: SECRET DETECTION (Gitleaks)
+  # Threat: APIキー / トークン / OAuth credentials / GitHub secrets
+  # ══════════════════════════════════════════════════════════════════════════════
+  secret-detection:
+    name: "🔑 Secret Detection (Gitleaks)"
+    runs-on: ubuntu-latest
+    outputs:
+      has_findings: ${{ steps.analyze.outputs.has_findings }}
+      critical_count: ${{ steps.analyze.outputs.critical_count }}
+      finding_summary: ${{ steps.analyze.outputs.finding_summary }}
+
+    steps:
+      - name: "📥 Checkout repository"
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for git log scanning
+
+      - name: "🕐 Set SOC timestamp"
+        id: timestamp
+        run: |
+          TS=$(date -u +"%Y%m%dT%H%M%SZ")
+          echo "ts=${TS}" >> $GITHUB_OUTPUT
+          echo "SOC_TIMESTAMP=${TS}" >> $GITHUB_ENV
+
+      - name: "🔍 Run Gitleaks (full history scan)"
+        id: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}  # optional for GHAS
+        with:
+          args: >
+            detect
+            --source .
+            --report-format json
+            --report-path gitleaks-report.json
+            --log-level warn
+            --redact
+        continue-on-error: true  # We handle failures ourselves
+
+      - name: "📊 Analyze Gitleaks results"
+        id: analyze
+        run: |
+          if [ ! -f gitleaks-report.json ]; then
+            echo "has_findings=false" >> $GITHUB_OUTPUT
+            echo "critical_count=0" >> $GITHUB_OUTPUT
+            echo "finding_summary=No secrets detected ✅" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          COUNT=$(python3 -c "
+          import json, sys
+          try:
+              with open('gitleaks-report.json') as f:
+                  data = json.load(f)
+              findings = data if isinstance(data, list) else []
+              print(len(findings))
+          except:
+              print(0)
+          ")
+
+          if [ "$COUNT" -gt "0" ]; then
+            echo "has_findings=true" >> $GITHUB_OUTPUT
+            echo "critical_count=${COUNT}" >> $GITHUB_OUTPUT
+            echo "finding_summary=🚨 ${COUNT} secret(s) detected" >> $GITHUB_OUTPUT
+          else
+            echo "has_findings=false" >> $GITHUB_OUTPUT
+            echo "critical_count=0" >> $GITHUB_OUTPUT
+            echo "finding_summary=No secrets detected ✅" >> $GITHUB_OUTPUT
+          fi
+
+      - name: "📁 Upload Gitleaks audit log"
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: "soc-audit-gitleaks-${{ steps.timestamp.outputs.ts }}"
+          path: |
+            gitleaks-report.json
+          retention-days: 90
+          if-no-files-found: warn
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # JOB 2: SAST (Semgrep)
+  # Threat: XSS / SSRF / SQLi / insecure functions / eval / command injection
+  # ══════════════════════════════════════════════════════════════════════════════
+  sast-scan:
+    name: "🔬 SAST Scan (Semgrep)"
+    runs-on: ubuntu-latest
+    outputs:
+      critical_count: ${{ steps.classify.outputs.critical_count }}
+      high_count: ${{ steps.classify.outputs.high_count }}
+      medium_count: ${{ steps.classify.outputs.medium_count }}
+      low_count: ${{ steps.classify.outputs.low_count }}
+      has_blocking: ${{ steps.classify.outputs.has_blocking }}
+
+    steps:
+      - name: "📥 Checkout repository"
+        uses: actions/checkout@v4
+
+      - name: "🕐 Set timestamp"
+        id: timestamp
+        run: echo "ts=$(date -u +%Y%m%dT%H%M%SZ)" >> $GITHUB_OUTPUT
+
+      - name: "🔬 Run Semgrep SAST"
+        id: semgrep
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: >
+            p/security-audit
+            p/owasp-top-ten
+            p/javascript
+            p/python
+            p/secrets
+            p/supply-chain
+          generateSarif: "1"
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}  # optional
+        continue-on-error: true
+
+      - name: "📊 Classify findings by severity"
+        id: classify
+        run: |
+          # Parse SARIF output from Semgrep
+          SARIF_FILE="semgrep.sarif"
+
+          if [ ! -f "$SARIF_FILE" ]; then
+            # Try alternate output location
+            SARIF_FILE=$(find . -name "*.sarif" 2>/dev/null | head -1)
+          fi
+
+          python3 << 'PYEOF'
+          import json, os, sys
+
+          sarif_path = "semgrep.sarif"
+          if not os.path.exists(sarif_path):
+              # Write empty results
+              for var in ["critical_count=0","high_count=0","medium_count=0","low_count=0","has_blocking=false"]:
+                  print(f"::notice::{var}")
+              with open(os.environ.get('GITHUB_OUTPUT',''), 'a') as f:
+                  f.write("critical_count=0\nhigh_count=0\nmedium_count=0\nlow_count=0\nhas_blocking=false\n")
+              sys.exit(0)
+
+          counts = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0, "NOTE": 0}
+
+          try:
+              with open(sarif_path) as f:
+                  sarif = json.load(f)
+
+              for run in sarif.get("runs", []):
+                  for result in run.get("results", []):
+                      level = result.get("level", "note").upper()
+                      # Map SARIF levels to SOC severity
+                      if level == "ERROR":
+                          counts["CRITICAL"] += 1
+                      elif level == "WARNING":
+                          counts["HIGH"] += 1
+                      elif level == "NOTE":
+                          counts["MEDIUM"] += 1
+                      else:
+                          counts["LOW"] += 1
+          except Exception as e:
+              print(f"Parse error: {e}", file=sys.stderr)
+
+          has_blocking = (counts["CRITICAL"] > 0 or counts["HIGH"] > 0)
+
+          github_output = os.environ.get('GITHUB_OUTPUT', '')
+          if github_output:
+              with open(github_output, 'a') as f:
+                  f.write(f"critical_count={counts['CRITICAL']}\n")
+                  f.write(f"high_count={counts['HIGH']}\n")
+                  f.write(f"medium_count={counts['MEDIUM']}\n")
+                  f.write(f"low_count={counts['LOW']}\n")
+                  f.write(f"has_blocking={'true' if has_blocking else 'false'}\n")
+
+          print(f"CRITICAL: {counts['CRITICAL']}")
+          print(f"HIGH:     {counts['HIGH']}")
+          print(f"MEDIUM:   {counts['MEDIUM']}")
+          print(f"LOW:      {counts['LOW']}")
+          PYEOF
+
+      - name: "📁 Upload Semgrep SARIF to GitHub Security"
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: semgrep.sarif
+        continue-on-error: true
+
+      - name: "📁 Upload SAST audit log"
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: "soc-audit-sast-${{ steps.timestamp.outputs.ts }}"
+          path: |
+            semgrep.sarif
+          retention-days: 90
+          if-no-files-found: warn
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # JOB 3: SUPPLY CHAIN SECURITY
+  # Threat: dependency injection / malicious packages / lockfile改ざん
+  # ══════════════════════════════════════════════════════════════════════════════
+  supply-chain:
+    name: "⛓️ Supply Chain Security"
+    runs-on: ubuntu-latest
+    outputs:
+      has_vulnerabilities: ${{ steps.audit.outputs.has_vulnerabilities }}
+      vuln_count: ${{ steps.audit.outputs.vuln_count }}
+
+    steps:
+      - name: "📥 Checkout repository"
+        uses: actions/checkout@v4
+
+      - name: "🕐 Set timestamp"
+        id: timestamp
+        run: echo "ts=$(date -u +%Y%m%dT%H%M%SZ)" >> $GITHUB_OUTPUT
+
+      - name: "🔍 Check for dependency files"
+        id: deps_check
+        run: |
+          HAS_NPM=false
+          HAS_PY=false
+          HAS_RUBY=false
+
+          [ -f "package-lock.json" ] || [ -f "package.json" ] && HAS_NPM=true
+          [ -f "requirements.txt" ] || [ -f "Pipfile.lock" ] || [ -f "pyproject.toml" ] && HAS_PY=true
+          [ -f "Gemfile.lock" ] && HAS_RUBY=true
+
+          echo "has_npm=${HAS_NPM}" >> $GITHUB_OUTPUT
+          echo "has_python=${HAS_PY}" >> $GITHUB_OUTPUT
+          echo "has_ruby=${HAS_RUBY}" >> $GITHUB_OUTPUT
+
+      - name: "🔍 NPM dependency audit"
+        if: steps.deps_check.outputs.has_npm == 'true'
+        run: |
+          npm audit --audit-level=moderate --json > npm-audit.json 2>&1 || true
+          echo "NPM audit complete"
+        continue-on-error: true
+
+      - name: "🔍 Python dependency audit (pip-audit)"
+        if: steps.deps_check.outputs.has_python == 'true'
+        run: |
+          pip install pip-audit --quiet
+          pip-audit --format=json --output pip-audit.json 2>&1 || true
+          echo "pip-audit complete"
+        continue-on-error: true
+
+      - name: "🔍 Lockfile integrity check"
+        id: lockfile
+        run: |
+          python3 << 'PYEOF'
+          import os, json, hashlib, sys
+
+          issues = []
+
+          # Check for package-lock.json vs package.json consistency
+          if os.path.exists("package.json") and not os.path.exists("package-lock.json"):
+              issues.append("⚠️ package.json exists without package-lock.json — lockfile missing")
+
+          # Check for uncommitted lockfile changes (git-based)
+          # This is detected by Gitleaks/Semgrep in other jobs
+
+          result = {"lockfile_issues": issues, "count": len(issues)}
+          with open("lockfile-check.json", "w") as f:
+              json.dump(result, f, indent=2)
+
+          print(f"Lockfile issues found: {len(issues)}")
+          for i in issues:
+              print(f"  {i}")
+          PYEOF
+
+      - name: "📊 Aggregate supply chain results"
+        id: audit
+        run: |
+          python3 << 'PYEOF'
+          import json, os
+
+          vuln_count = 0
+
+          # npm audit
+          if os.path.exists("npm-audit.json"):
+              try:
+                  with open("npm-audit.json") as f:
+                      data = json.load(f)
+                  vulns = data.get("metadata", {}).get("vulnerabilities", {})
+                  vuln_count += sum(vulns.values())
+              except:
+                  pass
+
+          # pip-audit
+          if os.path.exists("pip-audit.json"):
+              try:
+                  with open("pip-audit.json") as f:
+                      data = json.load(f)
+                  if isinstance(data, list):
+                      vuln_count += len(data)
+              except:
+                  pass
+
+          has_vuln = vuln_count > 0
+
+          github_output = os.environ.get('GITHUB_OUTPUT', '')
+          if github_output:
+              with open(github_output, 'a') as f:
+                  f.write(f"has_vulnerabilities={'true' if has_vuln else 'false'}\n")
+                  f.write(f"vuln_count={vuln_count}\n")
+
+          print(f"Total dependency vulnerabilities: {vuln_count}")
+          PYEOF
+
+      - name: "📁 Upload supply chain audit"
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: "soc-audit-supply-chain-${{ steps.timestamp.outputs.ts }}"
+          path: |
+            npm-audit.json
+            pip-audit.json
+            lockfile-check.json
+          retention-days: 90
+          if-no-files-found: warn
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # JOB 4: DAST / URL SCAN (Nuclei)
+  # Threat: XSS / SSRF / open redirect / exposed endpoints
+  # Note: Scans GitHub Pages URL if enabled
+  # ══════════════════════════════════════════════════════════════════════════════
+  dast-scan:
+    name: "🌐 DAST Scan (Nuclei)"
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event.inputs.scan_mode == 'full'
+    outputs:
+      has_findings: ${{ steps.nuclei.outputs.has_findings }}
+      critical_count: ${{ steps.nuclei.outputs.critical_count }}
+
+    steps:
+      - name: "📥 Checkout repository"
+        uses: actions/checkout@v4
+
+      - name: "🕐 Set timestamp"
+        id: timestamp
+        run: echo "ts=$(date -u +%Y%m%dT%H%M%SZ)" >> $GITHUB_OUTPUT
+
+      - name: "📦 Install Nuclei"
+        run: |
+          # Install Go and Nuclei (official binary)
+          wget -q https://github.com/projectdiscovery/nuclei/releases/latest/download/nuclei_linux_amd64.zip
+          unzip -q nuclei_linux_amd64.zip
+          chmod +x nuclei
+          sudo mv nuclei /usr/local/bin/
+          nuclei -version
+        continue-on-error: true
+
+      - name: "🔍 Detect GitHub Pages URL"
+        id: detect_url
+        run: |
+          # Extract GitHub Pages URL from repo
+          OWNER=$(echo "${{ github.repository }}" | cut -d'/' -f1)
+          REPO=$(echo "${{ github.repository }}" | cut -d'/' -f2)
+
+          # Standard GitHub Pages URL pattern
+          PAGES_URL="https://${OWNER}.github.io/${REPO}"
+
+          # Check if it responds
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${PAGES_URL}" --max-time 10 || echo "000")
+          echo "pages_url=${PAGES_URL}" >> $GITHUB_OUTPUT
+          echo "pages_active=$([ '$HTTP_STATUS' != '404' ] && [ '$HTTP_STATUS' != '000' ] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+          echo "GitHub Pages URL: ${PAGES_URL} (HTTP ${HTTP_STATUS})"
+
+      - name: "🌐 Run Nuclei DAST scan"
+        id: nuclei
+        if: steps.detect_url.outputs.pages_active == 'true'
+        run: |
+          TARGET_URL="${{ steps.detect_url.outputs.pages_url }}"
+          echo "Scanning: ${TARGET_URL}"
+
+          # Update nuclei templates
+          nuclei -update-templates -silent 2>/dev/null || true
+
+          # Run targeted scan (safe templates only — no destructive)
+          nuclei \
+            -u "${TARGET_URL}" \
+            -tags xss,redirect,exposure,config,ssrf \
+            -severity critical,high,medium \
+            -json-export nuclei-report.json \
+            -silent \
+            -timeout 10 \
+            -rate-limit 10 \
+            -bulk-size 5 \
+            -concurrency 5 \
+            -no-interactsh \
+            2>&1 | tee nuclei-output.txt || true
+
+          # Count findings
+          if [ -f "nuclei-report.json" ]; then
+            COUNT=$(wc -l < nuclei-report.json || echo 0)
+            CRIT=$(grep -c '"severity":"critical"' nuclei-report.json 2>/dev/null || echo 0)
+            echo "has_findings=$([ '$COUNT' -gt '0' ] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+            echo "critical_count=${CRIT}" >> $GITHUB_OUTPUT
+          else
+            echo "has_findings=false" >> $GITHUB_OUTPUT
+            echo "critical_count=0" >> $GITHUB_OUTPUT
+          fi
+        continue-on-error: true
+
+      - name: "📁 Upload DAST audit log"
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: "soc-audit-dast-${{ steps.timestamp.outputs.ts }}"
+          path: |
+            nuclei-report.json
+            nuclei-output.txt
+          retention-days: 90
+          if-no-files-found: warn
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # JOB 5: SOC ANALYSIS LAYER — Aggregate + Issue Creation
+  # This is the "Analysis Layer" — correlates all detection results
+  # ══════════════════════════════════════════════════════════════════════════════
+  soc-analysis:
+    name: "🧠 SOC Analysis & Response"
+    runs-on: ubuntu-latest
+    needs: [secret-detection, sast-scan, supply-chain]
+    if: always()
+    permissions:
+      issues: write
+      contents: read
+
+    steps:
+      - name: "📥 Checkout"
+        uses: actions/checkout@v4
+
+      - name: "🕐 Set timestamp"
+        id: timestamp
+        run: echo "ts=$(date -u +%Y%m%dT%H%M%SZ)" >> $GITHUB_OUTPUT
+
+      - name: "📊 Generate SOC Incident Report"
+        id: report
+        env:
+          SECRET_FINDINGS: ${{ needs.secret-detection.outputs.has_findings }}
+          SECRET_CRITICAL: ${{ needs.secret-detection.outputs.critical_count }}
+          SAST_CRITICAL: ${{ needs.sast-scan.outputs.critical_count }}
+          SAST_HIGH: ${{ needs.sast-scan.outputs.high_count }}
+          SAST_MEDIUM: ${{ needs.sast-scan.outputs.medium_count }}
+          SAST_LOW: ${{ needs.sast-scan.outputs.low_count }}
+          SUPPLY_VULNS: ${{ needs.supply-chain.outputs.vuln_count }}
+          GH_REPO: ${{ github.repository }}
+          GH_RUN_ID: ${{ github.run_id }}
+          GH_SHA: ${{ github.sha }}
+          GH_REF: ${{ github.ref }}
+          GH_ACTOR: ${{ github.actor }}
+          GH_EVENT: ${{ github.event_name }}
+        run: |
+          python3 << 'PYEOF'
+          import os, json
+          from datetime import datetime, timezone
+
+          ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+          repo = os.environ.get("GH_REPO", "unknown")
+          run_id = os.environ.get("GH_RUN_ID", "0")
+          sha = os.environ.get("GH_SHA", "unknown")[:8]
+          actor = os.environ.get("GH_ACTOR", "unknown")
+          event = os.environ.get("GH_EVENT", "unknown")
+
+          secret_findings = os.environ.get("SECRET_FINDINGS", "false") == "true"
+          secret_critical = int(os.environ.get("SECRET_CRITICAL", "0") or 0)
+          sast_critical   = int(os.environ.get("SAST_CRITICAL", "0") or 0)
+          sast_high       = int(os.environ.get("SAST_HIGH", "0") or 0)
+          sast_medium     = int(os.environ.get("SAST_MEDIUM", "0") or 0)
+          sast_low        = int(os.environ.get("SAST_LOW", "0") or 0)
+          supply_vulns    = int(os.environ.get("SUPPLY_VULNS", "0") or 0)
+
+          # Determine overall severity
+          if secret_critical > 0 or sast_critical > 0:
+              overall = "CRITICAL"
+              emoji = "🚨"
+          elif sast_high > 0 or supply_vulns > 5:
+              overall = "HIGH"
+              emoji = "🔴"
+          elif sast_medium > 0 or supply_vulns > 0:
+              overall = "MEDIUM"
+              emoji = "🟡"
+          else:
+              overall = "CLEAR"
+              emoji = "✅"
+
+          # Build report
+          report = {
+              "soc_incident_report": {
+                  "timestamp": ts,
+                  "repository": repo,
+                  "commit_sha": sha,
+                  "actor": actor,
+                  "trigger": event,
+                  "run_id": run_id,
+                  "overall_severity": overall
+              },
+              "detection_results": {
+                  "secret_detection": {
+                      "tool": "Gitleaks",
+                      "findings": secret_critical,
+                      "severity": "CRITICAL" if secret_critical > 0 else "CLEAR"
+                  },
+                  "sast": {
+                      "tool": "Semgrep",
+                      "critical": sast_critical,
+                      "high": sast_high,
+                      "medium": sast_medium,
+                      "low": sast_low
+                  },
+                  "supply_chain": {
+                      "tool": "npm-audit/pip-audit",
+                      "vulnerabilities": supply_vulns
+                  }
+              },
+              "response_actions": []
+          }
+
+          # Determine required actions
+          actions = []
+          if secret_critical > 0:
+              actions.append({"action": "IMMEDIATE_SECRET_ROTATION", "priority": "P0", "auto": False})
+              actions.append({"action": "CREATE_CRITICAL_ISSUE", "priority": "P0", "auto": True})
+          if sast_critical > 0:
+              actions.append({"action": "BLOCK_DEPLOYMENT", "priority": "P1", "auto": True})
+              actions.append({"action": "CREATE_HIGH_ISSUE", "priority": "P1", "auto": True})
+          if sast_high > 0:
+              actions.append({"action": "REQUIRE_SECURITY_REVIEW", "priority": "P2", "auto": True})
+
+          report["response_actions"] = actions
+
+          with open("soc-incident-report.json", "w") as f:
+              json.dump(report, f, indent=2, ensure_ascii=False)
+
+          # Write summary to GitHub step summary
+          summary = f"""# {emoji} SOC Security Scan Report
+
+          **Timestamp:** {ts}
+          **Repository:** {repo}
+          **Commit:** {sha}
+          **Triggered by:** {actor} via {event}
+          **Overall Status:** {emoji} **{overall}**
+
+          ---
+
+          ## 📊 Detection Results
+
+          | Scan | Tool | Critical | High | Medium | Low |
+          |------|------|----------|------|--------|-----|
+          | Secret Detection | Gitleaks | {secret_critical} | - | - | - |
+          | SAST | Semgrep | {sast_critical} | {sast_high} | {sast_medium} | {sast_low} |
+          | Supply Chain | npm/pip audit | {supply_vulns} vulns | - | - | - |
+
+          ---
+
+          ## 🎯 Required Actions
+
+          """
+
+          if not actions:
+              summary += "✅ No critical actions required. All scans passed.\n"
+          else:
+              for a in actions:
+                  auto = "🤖 Auto" if a["auto"] else "👤 Manual"
+                  summary += f"- **{a['priority']}** {a['action']} ({auto})\n"
+
+          summary += f"\n---\n📁 **Full audit logs:** [Run #{run_id}](https://github.com/{repo}/actions/runs/{run_id})\n"
+
+          github_step_summary = os.environ.get('GITHUB_STEP_SUMMARY', '')
+          if github_step_summary:
+              with open(github_step_summary, 'w') as f:
+                  f.write(summary)
+
+          # Set outputs
+          github_output = os.environ.get('GITHUB_OUTPUT', '')
+          if github_output:
+              with open(github_output, 'a') as f:
+                  f.write(f"overall_severity={overall}\n")
+                  f.write(f"needs_issue={'true' if (secret_critical > 0 or sast_critical > 0 or sast_high > 0) else 'false'}\n")
+                  f.write(f"issue_title={emoji} [{overall}] Security findings in commit {sha}\n")
+                  f.write(f"secret_critical={secret_critical}\n")
+                  f.write(f"sast_critical={sast_critical}\n")
+                  f.write(f"sast_high={sast_high}\n")
+
+          print(f"Overall severity: {overall}")
+          print(f"Actions required: {len(actions)}")
+          PYEOF
+
+      - name: "📁 Upload SOC Incident Report"
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: "soc-incident-report-${{ steps.timestamp.outputs.ts }}"
+          path: soc-incident-report.json
+          retention-days: 365  # Keep incidents for 1 year
+
+      - name: "🚨 Create GitHub Issue (HIGH/CRITICAL findings)"
+        if: steps.report.outputs.needs_issue == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const severity = '${{ steps.report.outputs.overall_severity }}';
+            const secretCrit = parseInt('${{ steps.report.outputs.secret_critical }}') || 0;
+            const sastCrit = parseInt('${{ steps.report.outputs.sast_critical }}') || 0;
+            const sastHigh = parseInt('${{ steps.report.outputs.sast_high }}') || 0;
+            const runId = '${{ github.run_id }}';
+            const sha = '${{ github.sha }}'.substring(0, 8);
+            const ts = new Date().toISOString();
+
+            const emoji = severity === 'CRITICAL' ? '🚨' : '🔴';
+            const label = severity === 'CRITICAL' ? 'security-critical' : 'security-high';
+
+            const body = `## ${emoji} SOC Security Alert — ${severity}
+
+            **Detected at:** ${ts}
+            **Commit:** \`${sha}\`
+            **Triggered by:** \`${{ github.actor }}\`
+            **Workflow run:** [#${runId}](https://github.com/${{ github.repository }}/actions/runs/${runId})
+
+            ---
+
+            ## 📊 Findings Summary
+
+            | Scan Type | Severity | Count |
+            |-----------|----------|-------|
+            | Secret Detection (Gitleaks) | CRITICAL | ${secretCrit} |
+            | SAST - Critical (Semgrep) | CRITICAL | ${sastCrit} |
+            | SAST - High (Semgrep) | HIGH | ${sastHigh} |
+
+            ---
+
+            ## 🎯 Required Actions
+
+            ${secretCrit > 0 ? `### 🔑 SECRET ROTATION REQUIRED (P0)
+            1. Immediately revoke all detected secrets/tokens
+            2. Rotate API keys in all connected services
+            3. Audit access logs for unauthorized use
+            4. Re-deploy with new secrets via GitHub Secrets` : ''}
+
+            ${sastCrit > 0 ? `### 🔬 CRITICAL CODE VULNERABILITY (P1)
+            1. Review SAST findings in workflow artifacts
+            2. Do NOT merge affected code until resolved
+            3. Apply security patches per Semgrep recommendations` : ''}
+
+            ${sastHigh > 0 ? `### ⚠️ HIGH CODE VULNERABILITY (P2)
+            1. Review HIGH findings in SAST audit log
+            2. Security review required before merge
+            3. Consider temporary merge block` : ''}
+
+            ---
+
+            ## 📁 Audit Artifacts
+            Full scan logs are attached to [workflow run #${runId}](https://github.com/${{ github.repository }}/actions/runs/${runId}) as artifacts (retained 90 days).
+
+            ---
+            *Auto-generated by SOC Security Scanner — ${{ github.repository }}*
+            `;
+
+            // Check for existing open issue for same severity
+            const existingIssues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: label,
+              state: 'open'
+            });
+
+            // Only create new issue if no open one exists for same type
+            if (existingIssues.data.length === 0) {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `${emoji} [${severity}] Security findings — commit ${sha}`,
+                body: body,
+                labels: [label, 'automated', 'soc-alert']
+              });
+              console.log(`Created ${severity} security issue`);
+            } else {
+              // Update existing issue with new finding
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingIssues.data[0].number,
+                body: `## 🔄 New Finding — ${ts}\n\nNew scan triggered by \`${{ github.actor }}\` (commit \`${sha}\`) detected additional findings.\n\nSee [workflow run #${runId}](https://github.com/${{ github.repository }}/actions/runs/${runId}) for details.`
+              });
+              console.log(`Updated existing issue #${existingIssues.data[0].number}`);
+            }
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # JOB 6: FAILURE POLICY — Pipeline enforcement
+  # CRITICAL/HIGH findings block deployment
+  # ══════════════════════════════════════════════════════════════════════════════
+  enforce-policy:
+    name: "🚦 SOC Policy Enforcement"
+    runs-on: ubuntu-latest
+    needs: [secret-detection, sast-scan, soc-analysis]
+    if: always()
+
+    steps:
+      - name: "🚦 Evaluate policy gates"
+        run: |
+          SECRET_FINDINGS="${{ needs.secret-detection.outputs.has_findings }}"
+          SAST_CRITICAL="${{ needs.sast-scan.outputs.critical_count }}"
+          SAST_HIGH="${{ needs.sast-scan.outputs.high_count }}"
+          OVERALL="${{ needs.soc-analysis.outputs.overall_severity }}"
+
+          echo "=== SOC Policy Gate Evaluation ==="
+          echo "Secret findings:   ${SECRET_FINDINGS}"
+          echo "SAST Critical:     ${SAST_CRITICAL}"
+          echo "SAST High:         ${SAST_HIGH}"
+          echo "Overall severity:  ${OVERALL}"
+          echo "=================================="
+
+          # CRITICAL policy: fail the pipeline
+          if [ "${SECRET_FINDINGS}" = "true" ]; then
+            echo "::error::🚨 POLICY VIOLATION: Secrets detected in repository. Pipeline BLOCKED."
+            echo "::error::ACTION REQUIRED: Immediately rotate all detected secrets."
+            exit 1
+          fi
+
+          if [ "${SAST_CRITICAL:-0}" -gt "0" ]; then
+            echo "::error::🚨 POLICY VIOLATION: CRITICAL SAST findings. Pipeline BLOCKED."
+            echo "::error::ACTION REQUIRED: Fix critical vulnerabilities before merge."
+            exit 1
+          fi
+
+          # HIGH policy: warning (doesn't fail pipeline on push, but fails on PR — see security-pr.yml)
+          if [ "${SAST_HIGH:-0}" -gt "0" ]; then
+            echo "::warning::🔴 HIGH severity findings detected. Security review required."
+          fi
+
+          echo "✅ SOC Policy Gate: PASSED"
