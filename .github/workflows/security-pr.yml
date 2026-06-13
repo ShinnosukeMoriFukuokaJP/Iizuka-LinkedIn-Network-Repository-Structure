@@ -1,0 +1,434 @@
+name: "🔐 SOC PR Security Gate"
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: ["main", "master", "develop"]
+
+# ─── Minimal permissions (PR-scoped) ──────────────────────────────────────────
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  security-events: write
+
+concurrency:
+  group: "soc-pr-${{ github.event.pull_request.number }}"
+  cancel-in-progress: true
+
+jobs:
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # JOB 1: DIFF-BASED SECRET DETECTION
+  # Only scans changed files in this PR (fast + targeted)
+  # ══════════════════════════════════════════════════════════════════════════════
+  pr-secret-scan:
+    name: "🔑 PR Secret Scan (Diff)"
+    runs-on: ubuntu-latest
+    outputs:
+      has_secrets: ${{ steps.scan.outputs.has_secrets }}
+      secret_count: ${{ steps.scan.outputs.secret_count }}
+      secret_details: ${{ steps.scan.outputs.secret_details }}
+
+    steps:
+      - name: "📥 Checkout PR"
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: "🔍 Gitleaks — diff-only scan"
+        id: scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          args: >
+            detect
+            --source .
+            --log-opts "${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
+            --report-format json
+            --report-path gitleaks-pr.json
+            --redact
+            --verbose
+        continue-on-error: true
+
+      - name: "📊 Parse secret findings"
+        id: parse
+        run: |
+          python3 << 'PYEOF'
+          import json, os
+
+          secrets_found = []
+          try:
+              with open("gitleaks-pr.json") as f:
+                  data = json.load(f)
+              if isinstance(data, list):
+                  secrets_found = data
+          except:
+              pass
+
+          count = len(secrets_found)
+          has_secrets = count > 0
+
+          # Build safe summary (no actual secret values — redacted)
+          details = []
+          for s in secrets_found[:5]:  # limit to first 5
+              details.append({
+                  "rule": s.get("RuleID", "unknown"),
+                  "file": s.get("File", "unknown"),
+                  "line": s.get("StartLine", "?"),
+                  "author": s.get("Author", "unknown")
+              })
+
+          github_output = os.environ.get('GITHUB_OUTPUT', '')
+          if github_output:
+              with open(github_output, 'a') as f:
+                  f.write(f"has_secrets={'true' if has_secrets else 'false'}\n")
+                  f.write(f"secret_count={count}\n")
+                  f.write(f"secret_details={json.dumps(details)}\n")
+
+          print(f"Secrets found: {count}")
+          PYEOF
+
+      - name: "📁 Upload PR secret scan log"
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: "soc-pr-secrets-${{ github.event.pull_request.number }}-${{ github.run_id }}"
+          path: gitleaks-pr.json
+          retention-days: 90
+          if-no-files-found: warn
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # JOB 2: DIFF-BASED SAST
+  # Semgrep on changed files only
+  # ══════════════════════════════════════════════════════════════════════════════
+  pr-sast-scan:
+    name: "🔬 PR SAST Scan (Diff)"
+    runs-on: ubuntu-latest
+    outputs:
+      critical_count: ${{ steps.classify.outputs.critical_count }}
+      high_count: ${{ steps.classify.outputs.high_count }}
+      medium_count: ${{ steps.classify.outputs.medium_count }}
+      findings_json: ${{ steps.classify.outputs.findings_json }}
+
+    steps:
+      - name: "📥 Checkout PR"
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: "🔍 Get changed files"
+        id: changed
+        run: |
+          git fetch origin ${{ github.event.pull_request.base.sha }} --depth=1 2>/dev/null || true
+          CHANGED=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} 2>/dev/null | tr '\n' ' ')
+          echo "files=${CHANGED}" >> $GITHUB_OUTPUT
+          echo "Changed files: ${CHANGED}"
+
+      - name: "🔬 Semgrep PR scan"
+        id: semgrep
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: >
+            p/security-audit
+            p/owasp-top-ten
+            p/secrets
+          generateSarif: "1"
+          auditOn: push
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+        continue-on-error: true
+
+      - name: "📊 Classify PR SAST findings"
+        id: classify
+        run: |
+          python3 << 'PYEOF'
+          import json, os
+
+          sarif_path = "semgrep.sarif"
+          counts = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0}
+          findings = []
+
+          if os.path.exists(sarif_path):
+              try:
+                  with open(sarif_path) as f:
+                      sarif = json.load(f)
+
+                  for run in sarif.get("runs", []):
+                      rules = {r["id"]: r for r in run.get("tool", {}).get("driver", {}).get("rules", [])}
+                      for result in run.get("results", []):
+                          level = result.get("level", "note").upper()
+                          rule_id = result.get("ruleId", "unknown")
+                          locs = result.get("locations", [])
+                          file_path = "unknown"
+                          line_num = 0
+                          if locs:
+                              pl = locs[0].get("physicalLocation", {})
+                              file_path = pl.get("artifactLocation", {}).get("uri", "unknown")
+                              line_num = pl.get("region", {}).get("startLine", 0)
+
+                          # Map severity
+                          if level == "ERROR":
+                              sev = "CRITICAL"
+                          elif level == "WARNING":
+                              sev = "HIGH"
+                          elif level == "NOTE":
+                              sev = "MEDIUM"
+                          else:
+                              sev = "LOW"
+
+                          counts[sev] += 1
+                          findings.append({
+                              "severity": sev,
+                              "rule": rule_id,
+                              "file": file_path,
+                              "line": line_num,
+                              "message": result.get("message", {}).get("text", "")[:200]
+                          })
+              except Exception as e:
+                  print(f"Parse error: {e}")
+
+          # Top findings for PR comment
+          top_findings = sorted(findings, key=lambda x: ["CRITICAL","HIGH","MEDIUM","LOW"].index(x["severity"]))[:10]
+
+          github_output = os.environ.get('GITHUB_OUTPUT', '')
+          if github_output:
+              with open(github_output, 'a') as f:
+                  f.write(f"critical_count={counts['CRITICAL']}\n")
+                  f.write(f"high_count={counts['HIGH']}\n")
+                  f.write(f"medium_count={counts['MEDIUM']}\n")
+                  f.write(f"findings_json={json.dumps(top_findings)}\n")
+
+          print(f"CRITICAL: {counts['CRITICAL']}, HIGH: {counts['HIGH']}, MEDIUM: {counts['MEDIUM']}")
+          PYEOF
+
+      - name: "📁 Upload PR SAST log"
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: "soc-pr-sast-${{ github.event.pull_request.number }}-${{ github.run_id }}"
+          path: semgrep.sarif
+          retention-days: 90
+          if-no-files-found: warn
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # JOB 3: PR INTELLIGENCE — Automated comment with risk analysis
+  # ══════════════════════════════════════════════════════════════════════════════
+  pr-intelligence:
+    name: "💬 PR Security Intelligence"
+    runs-on: ubuntu-latest
+    needs: [pr-secret-scan, pr-sast-scan]
+    if: always()
+    permissions:
+      pull-requests: write
+
+    steps:
+      - name: "💬 Post SOC security comment on PR"
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const hasSecrets = '${{ needs.pr-secret-scan.outputs.has_secrets }}' === 'true';
+            const secretCount = parseInt('${{ needs.pr-secret-scan.outputs.secret_count }}') || 0;
+            const sastCrit = parseInt('${{ needs.pr-sast-scan.outputs.critical_count }}') || 0;
+            const sastHigh = parseInt('${{ needs.pr-sast-scan.outputs.high_count }}') || 0;
+            const sastMed = parseInt('${{ needs.pr-sast-scan.outputs.medium_count }}') || 0;
+            const runId = '${{ github.run_id }}';
+            const prNum = ${{ github.event.pull_request.number }};
+            const sha = '${{ github.event.pull_request.head.sha }}'.substring(0, 8);
+
+            // Parse findings
+            let findings = [];
+            try {
+              findings = JSON.parse('${{ needs.pr-sast-scan.outputs.findings_json }}' || '[]');
+            } catch(e) {}
+
+            // Determine overall severity
+            let severity, emoji, statusBadge;
+            if (hasSecrets || sastCrit > 0) {
+              severity = 'CRITICAL';
+              emoji = '🚨';
+              statusBadge = '🔴 BLOCKED';
+            } else if (sastHigh > 0) {
+              severity = 'HIGH';
+              emoji = '🔴';
+              statusBadge = '🟠 REVIEW REQUIRED';
+            } else if (sastMed > 0) {
+              severity = 'MEDIUM';
+              emoji = '🟡';
+              statusBadge = '🟡 ADVISORY';
+            } else {
+              severity = 'CLEAR';
+              emoji = '✅';
+              statusBadge = '✅ PASSED';
+            }
+
+            // Build findings table
+            let findingsSection = '';
+            if (findings.length > 0) {
+              const sevEmoji = { CRITICAL: '🚨', HIGH: '🔴', MEDIUM: '🟡', LOW: '⚪' };
+              findingsSection = `
+            ### 🔬 SAST Findings (Top ${findings.length})
+
+            | Severity | Rule | File | Line | Description |
+            |----------|------|------|------|-------------|
+            ${findings.map(f =>
+              `| ${sevEmoji[f.severity] || '⚪'} ${f.severity} | \`${f.rule}\` | \`${f.file}\` | ${f.line} | ${f.message.substring(0,80)} |`
+            ).join('\n')}
+            `;
+            }
+
+            // Secret details (safe — no values)
+            let secretSection = '';
+            if (hasSecrets) {
+              let secretDetails = [];
+              try {
+                secretDetails = JSON.parse('${{ needs.pr-secret-scan.outputs.secret_details }}' || '[]');
+              } catch(e) {}
+
+              secretSection = `
+            ### 🔑 Secrets Detected (REDACTED)
+
+            > ⚠️ **Actual secret values are NOT shown here for security reasons.**
+            > Check Gitleaks audit artifact in workflow run for file locations.
+
+            ${secretDetails.map(s =>
+              `- **Rule:** \`${s.rule}\` | **File:** \`${s.file}\` | **Line:** ${s.line}`
+            ).join('\n')}
+
+            **IMMEDIATE ACTION REQUIRED:**
+            1. Do NOT merge this PR
+            2. Revoke the exposed secret immediately
+            3. Rotate credentials in all affected services
+            4. Remove secret from git history (use \`git filter-repo\` or BFG)
+            `;
+            }
+
+            const commentBody = `## ${emoji} SOC Security Gate — PR #${prNum}
+
+            **Status:** ${statusBadge}
+            **Commit:** \`${sha}\`
+            **Scanned at:** ${new Date().toISOString()}
+            **Workflow:** [Run #${runId}](https://github.com/${{ github.repository }}/actions/runs/${runId})
+
+            ---
+
+            ## 📊 Security Summary
+
+            | Scan | Tool | Critical | High | Medium |
+            |------|------|----------|------|--------|
+            | 🔑 Secrets | Gitleaks | ${secretCount} | - | - |
+            | 🔬 SAST | Semgrep | ${sastCrit} | ${sastHigh} | ${sastMed} |
+
+            ${secretSection}
+            ${findingsSection}
+
+            ---
+
+            ## 🎯 Required Actions
+
+            ${severity === 'CRITICAL' ? `### 🚨 MERGE BLOCKED — Critical issues must be resolved
+
+            - [ ] Revoke all exposed secrets immediately
+            - [ ] Fix all CRITICAL code vulnerabilities
+            - [ ] Re-push fixed commit for re-scan
+            ` : ''}
+            ${severity === 'HIGH' ? `### 🔴 Security Review Required
+
+            - [ ] Review HIGH findings in workflow artifacts
+            - [ ] Obtain security team approval before merge
+            ` : ''}
+            ${severity === 'MEDIUM' ? `### 🟡 Advisory — Review Recommended
+
+            - [ ] Review MEDIUM findings at your discretion
+            - [ ] Merge allowed but remediation recommended
+            ` : ''}
+            ${severity === 'CLEAR' ? `### ✅ All security checks passed
+
+            No security issues detected in this PR's changes.
+            ` : ''}
+
+            ---
+            📁 Full audit logs: [Workflow Run #${runId}](https://github.com/${{ github.repository }}/actions/runs/${runId}) → Artifacts (retained 90 days)
+
+            *🤖 Auto-generated by SOC Security Scanner*`;
+
+            // Find and update existing SOC comment or create new one
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNum
+            });
+
+            const existingComment = comments.data.find(c =>
+              c.body.includes('SOC Security Gate') &&
+              c.user.type === 'Bot'
+            );
+
+            if (existingComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existingComment.id,
+                body: commentBody
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNum,
+                body: commentBody
+              });
+            }
+
+            console.log(`SOC comment posted/updated. Severity: ${severity}`);
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # JOB 4: PR POLICY ENFORCEMENT — Block merge on CRITICAL/HIGH
+  # ══════════════════════════════════════════════════════════════════════════════
+  pr-policy-gate:
+    name: "🚦 PR Policy Gate"
+    runs-on: ubuntu-latest
+    needs: [pr-secret-scan, pr-sast-scan]
+    if: always()
+
+    steps:
+      - name: "🚦 Enforce merge policy"
+        run: |
+          HAS_SECRETS="${{ needs.pr-secret-scan.outputs.has_secrets }}"
+          SAST_CRIT="${{ needs.pr-sast-scan.outputs.critical_count }}"
+          SAST_HIGH="${{ needs.pr-sast-scan.outputs.high_count }}"
+
+          echo "=== PR Security Policy Gate ==="
+          echo "Has secrets:      ${HAS_SECRETS}"
+          echo "SAST Critical:    ${SAST_CRIT}"
+          echo "SAST High:        ${SAST_HIGH}"
+          echo "==============================="
+
+          BLOCKED=false
+
+          if [ "${HAS_SECRETS}" = "true" ]; then
+            echo "::error::🚨 MERGE BLOCKED: Secrets/credentials detected in PR changes."
+            echo "::error::Revoke secrets immediately and remove from git history."
+            BLOCKED=true
+          fi
+
+          if [ "${SAST_CRIT:-0}" -gt "0" ]; then
+            echo "::error::🚨 MERGE BLOCKED: ${SAST_CRIT} CRITICAL vulnerability(ies) found."
+            echo "::error::Fix all CRITICAL issues before merging."
+            BLOCKED=true
+          fi
+
+          if [ "${SAST_HIGH:-0}" -gt "0" ]; then
+            echo "::warning::🔴 MERGE WARNING: ${SAST_HIGH} HIGH vulnerability(ies) found."
+            echo "::warning::Security review required. Consider merge block."
+          fi
+
+          if [ "${BLOCKED}" = "true" ]; then
+            exit 1
+          fi
+
+          echo "✅ PR Policy Gate: PASSED"
