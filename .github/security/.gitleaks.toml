@@ -1,0 +1,100 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Gitleaks Configuration — SOC Custom Rules
+# Repository: Iizuka LinkedIn Network
+# ─────────────────────────────────────────────────────────────────────────────
+
+title = "Iizuka LinkedIn Network SOC — Gitleaks Config"
+
+[extend]
+# Extend from default rules
+useDefault = true
+
+# ─── ALLOWLIST (false positive suppression) ──────────────────────────────────
+[allowlist]
+description = "Global allowlist for known safe patterns"
+
+# Safe commit hashes (example patterns)
+commits = []
+
+# File patterns to skip entirely
+paths = [
+    '''node_modules''',
+    '''\.git''',
+    '''dist/''',
+    '''build/''',
+    '''\.github/security/\.gitleaks\.toml''',
+    '''CHANGELOG\.md''',
+    '''README.*\.md''',
+]
+
+# Regex patterns that are safe (e.g. example keys in docs)
+regexes = [
+    '''EXAMPLE_KEY''',
+    '''YOUR_.*_HERE''',
+    '''sk-XXXX''',
+    '''ghp_XXXX''',
+    '''dummy''',
+    '''placeholder''',
+]
+
+# ─── CUSTOM RULES — Japan/Kyushu specific patterns ───────────────────────────
+
+[[rules]]
+id = "linkedin-access-token"
+description = "LinkedIn OAuth Access Token"
+regex = '''(?i)(linkedin[_\-\s]?(access[_\-\s]?token|auth[_\-\s]?token|client[_\-\s]?secret))[^\w]*(=|:|\s)\s*['"` ]?([a-zA-Z0-9_\-]{20,})'''
+secretGroup = 4
+tags = ["linkedin", "oauth", "critical"]
+severity = "critical"
+
+[[rules]]
+id = "notion-integration-token"
+description = "Notion Integration Token"
+regex = '''secret_[a-zA-Z0-9]{43}'''
+tags = ["notion", "api", "high"]
+severity = "high"
+
+[[rules]]
+id = "zapier-webhook-url"
+description = "Zapier Webhook URL with embedded key"
+regex = '''https://hooks\.zapier\.com/hooks/catch/[0-9]+/[a-zA-Z0-9]+/'''
+tags = ["zapier", "webhook", "high"]
+severity = "high"
+
+[[rules]]
+id = "slack-webhook-url"
+description = "Slack Webhook URL"
+regex = '''https://hooks\.slack\.com/services/T[A-Z0-9]+/B[A-Z0-9]+/[a-zA-Z0-9]+'''
+tags = ["slack", "webhook", "high"]
+severity = "high"
+
+[[rules]]
+id = "n8n-api-key"
+description = "n8n API Key pattern"
+regex = '''(?i)(n8n[_\-\s]?(api[_\-\s]?key|token|secret))[^\w]*(=|:|\s)\s*['"` ]?([a-zA-Z0-9_\-]{20,})'''
+secretGroup = 4
+tags = ["n8n", "api", "high"]
+severity = "high"
+
+[[rules]]
+id = "cloudflare-tunnel-token"
+description = "Cloudflare Tunnel Token"
+regex = '''(?i)(cloudflare[_\-\s]?tunnel[_\-\s]?token)[^\w]*(=|:|\s)\s*['"` ]?([a-zA-Z0-9_\-\.]{40,})'''
+secretGroup = 3
+tags = ["cloudflare", "tunnel", "critical"]
+severity = "critical"
+
+[[rules]]
+id = "anthropic-api-key"
+description = "Anthropic Claude API Key"
+regex = '''sk-ant-[a-zA-Z0-9\-_]{40,}'''
+tags = ["anthropic", "api", "critical"]
+severity = "critical"
+
+[[rules]]
+id = "make-api-token"
+description = "Make.com (Integromat) API Token"
+regex = '''(?i)(make[_\-\s]?(api[_\-\s]?key|token))[^\w]*(=|:|\s)\s*['"` ]?([a-zA-Z0-9_\-]{20,})'''
+secretGroup = 4
+tags = ["make", "api", "high"]
+severity = "high"
