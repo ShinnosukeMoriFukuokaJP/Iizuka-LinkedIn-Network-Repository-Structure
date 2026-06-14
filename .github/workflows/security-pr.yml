@@ -93,7 +93,7 @@ jobs:
 
       - name: "📁 Upload PR secret scan log"
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: "soc-pr-secrets-${{ github.event.pull_request.number }}-${{ github.run_id }}"
           path: gitleaks-pr.json
@@ -207,7 +207,7 @@ jobs:
 
       - name: "📁 Upload PR SAST log"
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: "soc-pr-sast-${{ github.event.pull_request.number }}-${{ github.run_id }}"
           path: semgrep.sarif
