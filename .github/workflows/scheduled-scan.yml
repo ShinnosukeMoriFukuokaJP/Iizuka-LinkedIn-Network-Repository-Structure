@@ -37,7 +37,7 @@ jobs:
         run: echo "ts=$(date -u +%Y%m%dT%H%M%SZ)" >> $GITHUB_OUTPUT
 
       - name: "🔍 Gitleaks — all-history scan"
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
