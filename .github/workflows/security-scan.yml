@@ -109,7 +109,7 @@ jobs:
 
       - name: "📁 Upload Gitleaks audit log"
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: "soc-audit-gitleaks-${{ steps.timestamp.outputs.ts }}"
           path: |
@@ -225,7 +225,7 @@ jobs:
 
       - name: "📁 Upload SAST audit log"
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: "soc-audit-sast-${{ steps.timestamp.outputs.ts }}"
           path: |
@@ -347,7 +347,7 @@ jobs:
 
       - name: "📁 Upload supply chain audit"
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: "soc-audit-supply-chain-${{ steps.timestamp.outputs.ts }}"
           path: |
@@ -442,7 +442,7 @@ jobs:
 
       - name: "📁 Upload DAST audit log"
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: "soc-audit-dast-${{ steps.timestamp.outputs.ts }}"
           path: |
@@ -626,7 +626,7 @@ jobs:
 
       - name: "📁 Upload SOC Incident Report"
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: "soc-incident-report-${{ steps.timestamp.outputs.ts }}"
           path: soc-incident-report.json
