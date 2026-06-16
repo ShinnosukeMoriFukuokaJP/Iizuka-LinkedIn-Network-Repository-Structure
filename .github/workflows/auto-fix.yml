@@ -13,6 +13,8 @@ on:
     workflows: ["🔍 Security Scan (Detect Phase)"]
     types: [completed]
     branches: [main, master]
+    branches-ignore:
+      - 'dependabot/**'
   # 手動実行も可能
   workflow_dispatch:
     inputs:
