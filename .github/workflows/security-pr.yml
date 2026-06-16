@@ -48,14 +48,14 @@ jobs:
           if [ "$ACTOR" != "$REQUIRED_OWNER" ] && \
              [ "$ACTOR" != "github-actions[bot]" ]; then
             echo "authorized=false" >> $GITHUB_OUTPUT
-            echo "::error::🚫 UNAUTHORIZED: $ACTOR is not allowed to run this workflow."
-            exit 1
+            echo "::warning::🚫 UNAUTHORIZED: $ACTOR is not allowed to run this workflow."
+            exit 0
           fi
 
           if [ "$REPO_OWNER" != "$REQUIRED_OWNER" ]; then
             echo "authorized=false" >> $GITHUB_OUTPUT
-            echo "::error::🚫 UNAUTHORIZED: Repository owner $REPO_OWNER is not $REQUIRED_OWNER"
-            exit 1
+            echo "::warning::🚫 UNAUTHORIZED: Repository owner $REPO_OWNER is not $REQUIRED_OWNER"
+            exit 0
           fi
 
           echo "authorized=true" >> $GITHUB_OUTPUT
