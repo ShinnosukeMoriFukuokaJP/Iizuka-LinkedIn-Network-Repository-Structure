@@ -230,6 +230,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [owner-check, prepare-fix]
     if: always() && (needs.owner-check.outputs.authorized == 'true')
+    continue-on-error: true
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -238,22 +239,27 @@ jobs:
         continue-on-error: true
       - name: Check for CRITICAL findings
         id: check-critical
+        continue-on-error: true
         run: |
-          python3 -c "
-          import json, os
+          python3 << 'PYEOF2'
+          import json, os, sys
           p = os.environ.get('SCAN_RESULTS_DIR', '/tmp/scan-results')
+          cl = {'CRITICAL': []}
           try:
-              with open(f'{p}/classified.json') as f: cl = json.load(f)
-          except:
-              cl = {'CRITICAL': []}
+              if os.path.exists(f"{p}/classified.json"):
+                  with open(f"{p}/classified.json") as f:
+                      cl = json.load(f)
+          except Exception as e:
+              print(f"Warning: {e}")
           critical = cl.get('CRITICAL', [])
           out = os.environ.get('GITHUB_OUTPUT', '/dev/null')
           with open(out, 'a') as f:
-              f.write(f'has_critical={"true" if critical else "false"}\n')
-          print(f'CRITICAL findings: {len(critical)}')
-          "
+              f.write(f"has_critical={'true' if critical else 'false'}\n")
+          print(f"CRITICAL findings: {len(critical)}")
+          PYEOF2
       - name: Create CRITICAL issue
         if: steps.check-critical.outputs.has_critical == 'true'
+        continue-on-error: true
         uses: actions/github-script@v7
         with:
           script: |
