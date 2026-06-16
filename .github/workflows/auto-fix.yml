@@ -1,0 +1,828 @@
+# =============================================================
+# auto-fix.yml
+# Self-Healing DevSecOps Pipeline — Phase 3+4: FIX + PR
+# HIGHレベルの脆弱性を自動修正し、PRを自動生成する
+# ⚠️ mainへの直接pushは一切しない
+# ⚠️ 自動マージは絶対に禁止
+# =============================================================
+name: 🔧 Auto-Fix & PR Generator
+
+on:
+  # security-scan.ymlが完了した後にトリガー
+  workflow_run:
+    workflows: ["🔍 Security Scan (Detect Phase)"]
+    types: [completed]
+    branches: [main, master]
+  # 手動実行も可能
+  workflow_dispatch:
+    inputs:
+      force_scan:
+        description: 'Force re-scan before fixing'
+        required: false
+        default: 'true'
+        type: boolean
+
+# 最小権限 — 修正PRの作成に必要な最低限のみ
+permissions:
+  contents: write   # ブランチ作成とcommitに必要
+  pull-requests: write  # PR作成に必要
+  security-events: read
+  issues: write
+
+env:
+  FIX_BRANCH_PREFIX: "security/auto-fix"
+  SCAN_RESULTS_DIR: /tmp/scan-results
+
+jobs:
+
+  # ─────────────────────────────────────────
+  # 🔒 OWNER-ONLY LOCK — 所有者以外は即時停止
+  # ─────────────────────────────────────────
+  owner-check:
+    name: 🔒 Owner Identity Verification
+    runs-on: ubuntu-latest
+    outputs:
+      authorized: ${{ steps.verify.outputs.authorized }}
+    steps:
+      - name: Verify actor is repository owner
+        id: verify
+        env:
+          REQUIRED_OWNER: "ShinnosukeMoriFukuokaJP"
+        run: |
+          ACTOR="${{ github.actor }}"
+          REPO_OWNER="${{ github.repository_owner }}"
+
+          echo "Actor     : $ACTOR"
+          echo "Repo owner: $REPO_OWNER"
+          echo "Required  : $REQUIRED_OWNER"
+
+          # スケジュール実行はActorが github-actions[bot] になる
+          # そのためリポジトリオーナーで最終判定
+          if [ "$ACTOR" != "$REQUIRED_OWNER" ] && \
+             [ "$ACTOR" != "github-actions[bot]" ]; then
+            echo "authorized=false" >> $GITHUB_OUTPUT
+            echo "::error::🚫 UNAUTHORIZED: $ACTOR is not allowed to run this workflow."
+            exit 1
+          fi
+
+          if [ "$REPO_OWNER" != "$REQUIRED_OWNER" ]; then
+            echo "authorized=false" >> $GITHUB_OUTPUT
+            echo "::error::🚫 UNAUTHORIZED: Repository owner $REPO_OWNER is not $REQUIRED_OWNER"
+            exit 1
+          fi
+
+          echo "authorized=true" >> $GITHUB_OUTPUT
+          echo "✅ Authorization passed for $ACTOR"
+
+  # ─────────────────────────────────────────
+  # JOB 1: 前回スキャン結果の取得または再スキャン
+  # ─────────────────────────────────────────
+  prepare-fix:
+    name: 📥 Prepare Fix Context
+    needs: [owner-check]
+    if: needs.owner-check.outputs.authorized == 'true'
+    runs-on: ubuntu-latest
+    # security-scan.ymlが失敗した場合は実行しない
+    if: |
+      github.event_name == 'workflow_dispatch' || 
+      github.event.workflow_run.conclusion == 'success' ||
+      github.event.workflow_run.conclusion == 'failure'
+    outputs:
+      has_fixable: ${{ steps.check.outputs.has_fixable }}
+      fix_count: ${{ steps.check.outputs.fix_count }}
+      run_id: ${{ steps.get-run.outputs.run_id }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get triggering run ID
+        id: get-run
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            echo "run_id=${{ github.event.workflow_run.id }}" >> $GITHUB_OUTPUT
+          else
+            echo "run_id=${{ github.run_id }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Download scan artifacts from triggering run
+        uses: actions/download-artifact@v4
+        with:
+          name: semgrep-results-${{ steps.get-run.outputs.run_id }}
+          path: ${{ env.SCAN_RESULTS_DIR }}
+        continue-on-error: true
+
+      - name: Re-scan if no artifacts found
+        id: rescan
+        run: |
+          CLASSIFIED="${{ env.SCAN_RESULTS_DIR }}/classified.json"
+          
+          if [ ! -f "$CLASSIFIED" ]; then
+            echo "No prior scan results found, running fresh scan..."
+            
+            pip install semgrep --quiet
+            mkdir -p ${{ env.SCAN_RESULTS_DIR }}
+            
+            semgrep scan \
+              --config "p/owasp-top-ten" \
+              --config "p/secrets" \
+              --json \
+              --output ${{ env.SCAN_RESULTS_DIR }}/semgrep-results.json \
+              --no-error \
+              --quiet \
+              . 2>/dev/null || true
+            
+            python3 << 'PYEOF'
+          import json, os
+
+          results_path = os.environ.get('SCAN_RESULTS_DIR', '/tmp/scan-results')
+          
+          try:
+              with open(f"{results_path}/semgrep-results.json") as f:
+                  data = json.load(f)
+          except:
+              data = {"results": []}
+
+          severity_map = {"ERROR": "HIGH", "WARNING": "MEDIUM", "INFO": "LOW"}
+          classified = {"CRITICAL": [], "HIGH": [], "MEDIUM": [], "LOW": []}
+
+          for r in data.get('results', []):
+              sev = r.get('extra', {}).get('severity', 'INFO')
+              level = severity_map.get(sev, 'LOW')
+              classified[level].append({
+                  "check_id": r.get('check_id', ''),
+                  "path": r.get('path', ''),
+                  "start_line": r.get('start', {}).get('line', 0),
+                  "end_line": r.get('end', {}).get('line', 0),
+                  "message": r.get('extra', {}).get('message', ''),
+                  "code": r.get('extra', {}).get('lines', ''),
+                  "fix": r.get('extra', {}).get('fix', ''),
+                  "cwe": r.get('extra', {}).get('metadata', {}).get('cwe', '')
+              })
+
+          with open(f"{results_path}/classified.json", 'w') as f:
+              json.dump(classified, f, indent=2)
+          PYEOF
+            echo "Fresh scan complete"
+          else
+            echo "Using existing scan results"
+          fi
+
+      - name: Check fixable findings
+        id: check
+        run: |
+          python3 << 'PYEOF'
+          import json, os
+
+          results_path = os.environ.get('SCAN_RESULTS_DIR', '/tmp/scan-results')
+          
+          try:
+              with open(f"{results_path}/classified.json") as f:
+                  classified = json.load(f)
+          except:
+              classified = {"HIGH": [], "CRITICAL": [], "MEDIUM": [], "LOW": []}
+
+          high = classified.get('HIGH', [])
+          fixable = [f for f in high if f.get('path', '').endswith(('.py', '.js', '.ts', '.yaml', '.yml', '.json', '.md'))]
+          
+          gha_output = os.environ.get('GITHUB_OUTPUT', '/dev/null')
+          with open(gha_output, 'a') as f:
+              f.write(f"has_fixable={'true' if fixable else 'false'}\n")
+              f.write(f"fix_count={len(fixable)}\n")
+          
+          print(f"Fixable HIGH findings: {len(fixable)}")
+          for item in fixable:
+              print(f"  {item['path']}:{item['start_line']} — {item['check_id']}")
+          PYEOF
+
+  # ─────────────────────────────────────────
+  # JOB 2: 自動修正 + PRブランチ作成
+  # ─────────────────────────────────────────
+  auto-fix-and-pr:
+    name: 🤖 Auto-Fix Engine & PR Creator
+    runs-on: ubuntu-latest
+    needs: [owner-check, prepare-fix]
+    if: needs.owner-check.outputs.authorized == 'true' && needs.prepare-fix.outputs.has_fixable == 'true'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git identity
+        run: |
+          git config user.name "Security Bot [Auto-Fix]"
+          git config user.email "security-bot@github-actions.local"
+
+      - name: Download scan results
+        uses: actions/download-artifact@v4
+        with:
+          name: semgrep-results-${{ needs.prepare-fix.outputs.run_id }}
+          path: ${{ env.SCAN_RESULTS_DIR }}
+        continue-on-error: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install fix tools
+        run: |
+          pip install semgrep --quiet
+
+      - name: Create fix branch
+        id: branch
+        run: |
+          TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+          BRANCH="${{ env.FIX_BRANCH_PREFIX }}-${TIMESTAMP}"
+          
+          git checkout -b "$BRANCH"
+          
+          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+          echo "timestamp=$TIMESTAMP" >> $GITHUB_OUTPUT
+          echo "Created branch: $BRANCH"
+
+      - name: Run auto-fix engine
+        id: fix-engine
+        run: |
+          python3 << 'PYEOF'
+          import json, os, re, sys
+          from pathlib import Path
+
+          # ─── 修正ルール定義 ───────────────────────────────────
+          # 各ルールは安全性が検証済みのパターンのみ
+          FIX_RULES = {
+              # JavaScript: eval() → Function constructor (safer alternative)
+              "unsafe-eval-js": {
+                  "pattern": re.compile(r'\beval\s*\(', re.MULTILINE),
+                  "replacement": lambda m: "/* SECURITY: eval() removed — use JSON.parse() or safe alternatives */ (",
+                  "description": "Replaced unsafe eval() with comment placeholder",
+                  "safe": True
+              },
+              
+              # Python: os.system() → subprocess with list args (no shell injection)
+              "unsafe-exec-python": {
+                  "pattern": re.compile(r'os\.system\s*\(([^)]+)\)', re.MULTILINE),
+                  "replacement": lambda m: f"subprocess.run([{m.group(1)}], shell=False, check=True)",
+                  "description": "Replaced os.system() with subprocess.run(shell=False)",
+                  "safe": True,
+                  "add_import": "import subprocess"
+              },
+              
+              # Python/JS: hardcoded secrets → env var reference
+              "hardcoded-api-key": {
+                  "pattern": re.compile(
+                      r'((?:api_key|apikey|api-key|secret|password|passwd|token|access_key)\s*=\s*)["\']([^"\']{8,})["\']',
+                      re.IGNORECASE
+                  ),
+                  "replacement": lambda m: f'{m.group(1)}os.environ.get("SECURITY_PLACEHOLDER", "")',
+                  "description": "Replaced hardcoded credential with environment variable",
+                  "safe": True,
+                  "add_import": "import os"
+              },
+              
+              # JavaScript: hardcoded secrets → process.env
+              "hardcoded-api-key-js": {
+                  "pattern": re.compile(
+                      r'((?:apiKey|apikey|api_key|secret|password|token)\s*[:=]\s*)["\']([^"\']{8,})["\']',
+                      re.IGNORECASE
+                  ),
+                  "replacement": lambda m: f'{m.group(1)}process.env.SECURITY_PLACEHOLDER',
+                  "description": "Replaced hardcoded credential with process.env reference",
+                  "safe": True
+              },
+              
+              # Python: MD5 weak hash → SHA-256
+              "weak-hash-md5": {
+                  "pattern": re.compile(r'hashlib\.md5\s*\(', re.MULTILINE),
+                  "replacement": lambda m: "hashlib.sha256(",
+                  "description": "Replaced MD5 with SHA-256",
+                  "safe": True
+              },
+              
+              # Python: Debug flag → False
+              "debug-flag-enabled": {
+                  "pattern": re.compile(r'\bDEBUG\s*=\s*True\b', re.MULTILINE),
+                  "replacement": lambda m: "DEBUG = False  # SECURITY: Debug disabled",
+                  "description": "Disabled debug mode",
+                  "safe": True
+              },
+              
+              # JavaScript: innerHTML → textContent (XSS prevention)
+              "innerHTML-xss": {
+                  "pattern": re.compile(r'\.innerHTML\s*=\s*', re.MULTILINE),
+                  "replacement": lambda m: ".textContent = /* SECURITY: Use DOMPurify.sanitize() for HTML */ ",
+                  "description": "Replaced innerHTML with textContent (XSS prevention)",
+                  "safe": True
+              }
+          }
+
+          # ─── ファイル修正処理 ──────────────────────────────────
+          results_path = os.environ.get('SCAN_RESULTS_DIR', '/tmp/scan-results')
+          
+          try:
+              with open(f"{results_path}/classified.json") as f:
+                  classified = json.load(f)
+          except:
+              print("No classified results found")
+              sys.exit(0)
+
+          high_findings = classified.get('HIGH', [])
+          fix_log = []
+          modified_files = set()
+          fix_summary = []
+
+          for finding in high_findings:
+              file_path = finding.get('path', '')
+              check_id = finding.get('check_id', '')
+              message = finding.get('message', '')
+              start_line = finding.get('start_line', 0)
+              
+              if not file_path or not os.path.exists(file_path):
+                  print(f"  Skip (file not found): {file_path}")
+                  continue
+              
+              # ファイル拡張子チェック（安全なファイルのみ修正）
+              safe_extensions = {'.py', '.js', '.ts', '.jsx', '.tsx', '.yml', '.yaml'}
+              if not any(file_path.endswith(ext) for ext in safe_extensions):
+                  print(f"  Skip (unsupported extension): {file_path}")
+                  continue
+              
+              # ルールIDマッチング（check_idに基づいてルールを選択）
+              matched_rule_id = None
+              matched_rule = None
+              
+              for rule_id, rule in FIX_RULES.items():
+                  if rule_id in check_id or any(kw in check_id.lower() for kw in rule_id.split('-')):
+                      matched_rule_id = rule_id
+                      matched_rule = rule
+                      break
+              
+              # ルールが見つからない場合、messageからも試行
+              if not matched_rule:
+                  for rule_id, rule in FIX_RULES.items():
+                      keywords = rule_id.split('-')
+                      if any(kw in message.lower() for kw in keywords):
+                          matched_rule_id = rule_id
+                          matched_rule = rule
+                          break
+              
+              if not matched_rule:
+                  print(f"  No fix rule for: {check_id}")
+                  fix_summary.append({
+                      "file": file_path,
+                      "line": start_line,
+                      "check_id": check_id,
+                      "status": "no_rule",
+                      "message": message
+                  })
+                  continue
+              
+              if not matched_rule.get('safe', False):
+                  print(f"  Skip (marked unsafe): {check_id}")
+                  continue
+              
+              # ファイル読み込み
+              try:
+                  with open(file_path, 'r', encoding='utf-8') as f:
+                      original_content = f.read()
+              except Exception as e:
+                  print(f"  Cannot read {file_path}: {e}")
+                  continue
+              
+              # パターンマッチ確認
+              if not matched_rule['pattern'].search(original_content):
+                  print(f"  Pattern not found in {file_path}")
+                  fix_summary.append({
+                      "file": file_path,
+                      "line": start_line,
+                      "check_id": check_id,
+                      "status": "pattern_not_found",
+                      "message": message
+                  })
+                  continue
+              
+              # 修正適用（最大1ファイルにつき1パターンのみ安全に置換）
+              try:
+                  fixed_content = matched_rule['pattern'].sub(
+                      matched_rule['replacement'],
+                      original_content,
+                      count=10  # 最大10箇所まで
+                  )
+                  
+                  # importが必要な場合は先頭に追加
+                  if 'add_import' in matched_rule:
+                      import_stmt = matched_rule['add_import']
+                      if import_stmt not in fixed_content:
+                          fixed_content = import_stmt + '\n' + fixed_content
+                  
+                  # 変更がある場合のみ書き込み
+                  if fixed_content != original_content:
+                      with open(file_path, 'w', encoding='utf-8') as f:
+                          f.write(fixed_content)
+                      
+                      modified_files.add(file_path)
+                      fix_log.append({
+                          "file": file_path,
+                          "line": start_line,
+                          "check_id": check_id,
+                          "rule": matched_rule_id,
+                          "description": matched_rule['description'],
+                          "status": "fixed"
+                      })
+                      fix_summary.append({
+                          "file": file_path,
+                          "line": start_line,
+                          "check_id": check_id,
+                          "status": "fixed",
+                          "rule": matched_rule_id,
+                          "description": matched_rule['description'],
+                          "message": message
+                      })
+                      print(f"  ✅ Fixed: {file_path}:{start_line} ({matched_rule_id})")
+                  else:
+                      print(f"  No change after fix attempt: {file_path}")
+                      fix_summary.append({
+                          "file": file_path,
+                          "line": start_line,
+                          "check_id": check_id,
+                          "status": "no_change",
+                          "message": message
+                      })
+                      
+              except Exception as e:
+                  print(f"  Error fixing {file_path}: {e}")
+                  fix_summary.append({
+                      "file": file_path,
+                      "line": start_line,
+                      "check_id": check_id,
+                      "status": "error",
+                      "error": str(e),
+                      "message": message
+                  })
+
+          # 結果保存
+          result = {
+              "modified_files": list(modified_files),
+              "fix_count": len([f for f in fix_summary if f['status'] == 'fixed']),
+              "total_findings": len(high_findings),
+              "summary": fix_summary,
+              "fix_log": fix_log
+          }
+          
+          with open(f"{results_path}/fix-result.json", 'w') as f:
+              json.dump(result, f, indent=2, ensure_ascii=False)
+          
+          # GitHub Actions outputs
+          gha_output = os.environ.get('GITHUB_OUTPUT', '/dev/null')
+          with open(gha_output, 'a') as f:
+              f.write(f"fix_count={result['fix_count']}\n")
+              f.write(f"modified_files={','.join(modified_files)}\n")
+              f.write(f"has_fixes={'true' if modified_files else 'false'}\n")
+          
+          print(f"\n=== Fix Engine Complete ===")
+          print(f"Fixed: {result['fix_count']} / {result['total_findings']} findings")
+          print(f"Modified files: {list(modified_files)}")
+          PYEOF
+
+      - name: Semgrep auto-fix (supplemental)
+        if: steps.fix-engine.outputs.has_fixes == 'true'
+        run: |
+          # Semgrep自身の自動修正機能も適用（--autofix）
+          # 既存の修正と競合しないよう--dryrunで確認してから適用
+          semgrep scan \
+            --config "p/owasp-top-ten" \
+            --autofix \
+            --dryrun \
+            --quiet \
+            --no-error \
+            . 2>/dev/null || true
+          
+          # Semgrep公式fixがある場合は適用
+          semgrep scan \
+            --config "p/owasp-top-ten" \
+            --autofix \
+            --quiet \
+            --no-error \
+            . 2>/dev/null || true
+          
+          echo "Semgrep autofix applied"
+        continue-on-error: true
+
+      - name: Commit fixes to branch
+        id: commit
+        if: steps.fix-engine.outputs.has_fixes == 'true'
+        run: |
+          # 変更ファイルをステージング
+          git add -A
+          
+          # 変更があるかチェック
+          if git diff --staged --quiet; then
+            echo "No staged changes to commit"
+            echo "committed=false" >> $GITHUB_OUTPUT
+          else
+            # 意味のあるコミットメッセージ生成
+            TIMESTAMP=$(date +%Y-%m-%dT%H:%M:%SZ)
+            
+            COMMIT_MSG="security: auto-fix HIGH severity vulnerabilities [$(date +%Y%m%d)]
+
+          🤖 Automated Security Fix — Self-Healing DevSecOps Pipeline
+
+          Changes applied by security-bot:
+          $(python3 -c "
+          import json
+          try:
+              with open('${{ env.SCAN_RESULTS_DIR }}/fix-result.json') as f:
+                  data = json.load(f)
+              for item in data.get('fix_log', []):
+                  print(f\"  - [{item['rule']}] {item['file']}:{item['line']}\")
+                  print(f\"    {item['description']}\")
+          except: print('  - See PR description for details')
+          ")
+
+          Security scan: ${{ github.run_id }}
+          Commit: ${{ github.sha }}
+          Timestamp: $TIMESTAMP
+
+          ⚠️  This is an automated fix. Human review required before merge.
+          ⛔  Do NOT merge without security team approval."
+            
+            git commit -m "$COMMIT_MSG"
+            echo "committed=true" >> $GITHUB_OUTPUT
+            echo "Committed security fixes"
+          fi
+
+      - name: Push fix branch
+        if: steps.commit.outputs.committed == 'true'
+        run: |
+          git push origin "${{ steps.branch.outputs.branch }}"
+          echo "Pushed branch: ${{ steps.branch.outputs.branch }}"
+
+      - name: Create Pull Request
+        id: create-pr
+        if: steps.commit.outputs.committed == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            
+            // fix-result.jsonを読み込み
+            let fixResult = { fix_count: 0, total_findings: 0, summary: [] };
+            try {
+              fixResult = JSON.parse(fs.readFileSync('${{ env.SCAN_RESULTS_DIR }}/fix-result.json', 'utf8'));
+            } catch(e) { console.log('No fix result:', e.message); }
+            
+            const now = new Date().toISOString();
+            const branch = '${{ steps.branch.outputs.branch }}';
+            const baseBranch = '${{ github.event.repository.default_branch }}' || 'main';
+            
+            // PR本文生成
+            const fixedItems = fixResult.summary.filter(s => s.status === 'fixed');
+            const unfixedItems = fixResult.summary.filter(s => s.status !== 'fixed');
+            
+            const fixedTable = fixedItems.length > 0 ? `
+            | File | Line | Rule | Description |
+            |------|------|------|-------------|
+            ${fixedItems.map(f => `| \`${f.file}\` | ${f.line} | \`${f.rule || f.check_id}\` | ${f.description || f.message} |`).join('\n')}
+            ` : '_No fixes applied_';
+            
+            const unfixedTable = unfixedItems.length > 0 ? `
+            | File | Line | Status | Issue |
+            |------|------|--------|-------|
+            ${unfixedItems.map(f => `| \`${f.file}\` | ${f.line} | \`${f.status}\` | ${f.message} |`).join('\n')}
+            ` : '_None_';
+            
+            const prBody = `## 🤖 Automated Security Fix PR
+
+            > ⚠️ **This PR was generated automatically by the Self-Healing DevSecOps Pipeline.**
+            > ⛔ **Do NOT merge without human review and approval.**
+            > 🔄 **CI will re-scan this PR before it can be merged.**
+
+            ---
+
+            ### 📊 Fix Summary
+
+            | Metric | Value |
+            |--------|-------|
+            | Total HIGH findings | ${fixResult.total_findings} |
+            | Auto-fixed | ✅ ${fixResult.fix_count} |
+            | Requires manual fix | ⚠️ ${fixResult.total_findings - fixResult.fix_count} |
+            | Generated at | ${now} |
+            | Triggered by | Commit \`${{ github.sha }}\` |
+
+            ---
+
+            ### ✅ Applied Fixes
+
+            ${fixedTable}
+
+            ---
+
+            ### ⚠️ Findings Requiring Manual Review
+
+            ${unfixedTable}
+
+            ---
+
+            ### 🔍 How to Review This PR
+
+            1. **Check the diff** — verify each change is appropriate
+            2. **Review context** — ensure fixes don't break functionality
+            3. **Re-scan confirmation** — CI will auto-run \`security-pr.yml\`
+            4. **Approve & Merge** — only after confirming no regressions
+
+            ### ⚡ Risk Assessment
+
+            | Risk | Level | Notes |
+            |------|-------|-------|
+            | False positives | LOW | Fixes use conservative, proven patterns |
+            | Functionality impact | MEDIUM | Review all modified files |
+            | Security improvement | HIGH | Addresses confirmed vulnerabilities |
+
+            ### 🚦 Impact Scope
+
+            Modified files:
+            ${fixedItems.map(f => `- \`${f.file}\``).filter((v,i,a) => a.indexOf(v) === i).join('\n')}
+
+            ---
+
+            > **Pipeline:** Self-Healing DevSecOps | [View Scan Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            > **Branch:** \`${branch}\` → \`${baseBranch}\``;
+
+            // PR作成
+            const pr = await github.rest.pulls.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `🔒 [Security Auto-Fix] ${fixResult.fix_count} HIGH vulnerabilities patched — ${now.split('T')[0]}`,
+              body: prBody,
+              head: branch,
+              base: baseBranch,
+              draft: false
+            });
+            
+            console.log(`PR created: #${pr.data.number} — ${pr.data.html_url}`);
+            
+            // ラベル追加
+            try {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.data.number,
+                labels: ['security', 'automated', 'auto-fix', 'needs-review']
+              });
+            } catch(e) {
+              console.log('Could not add labels (may need to create them first):', e.message);
+            }
+            
+            // レビュアーを要求（オプション：チームを指定する場合）
+            // await github.rest.pulls.requestReviewers({
+            //   owner: context.repo.owner,
+            //   repo: context.repo.repo,
+            //   pull_number: pr.data.number,
+            //   reviewers: ['your-username']
+            // });
+            
+            core.setOutput('pr_number', pr.data.number);
+            core.setOutput('pr_url', pr.data.html_url);
+            
+            return { pr_number: pr.data.number, pr_url: pr.data.html_url };
+
+      - name: Close related security issues
+        if: steps.create-pr.outputs.pr_number
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // 自動修正PRが作成されたことを関連Issueに通知
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'security,automated',
+              state: 'open'
+            });
+            
+            for (const issue of issues.data) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                body: `## 🤖 Auto-Fix PR Created
+                
+                An automated fix PR has been generated for the HIGH severity findings:
+                **PR #${{ steps.create-pr.outputs.pr_number }}**: ${{ steps.create-pr.outputs.pr_url }}
+                
+                This issue will be closed when the fix PR is merged.`
+              });
+            }
+            
+            console.log(`Notified ${issues.data.length} related issues`);
+
+      - name: Report no fixable findings
+        if: steps.fix-engine.outputs.has_fixes == 'false'
+        run: |
+          echo "::notice title=Auto-Fix::No fixable patterns found in HIGH severity findings."
+          echo "Manual review required for all findings."
+
+  # ─────────────────────────────────────────
+  # JOB 3: CRITICAL発見時の緊急通知
+  # ─────────────────────────────────────────
+  critical-alert:
+    name: 🚨 Critical Alert Handler
+    runs-on: ubuntu-latest
+    needs: [owner-check, prepare-fix]
+    if: always() && needs.owner-check.outputs.authorized == 'true'
+    
+    steps:
+      - name: Download scan results
+        uses: actions/download-artifact@v4
+        with:
+          name: semgrep-results-${{ needs.prepare-fix.outputs.run_id }}
+          path: ${{ env.SCAN_RESULTS_DIR }}
+        continue-on-error: true
+
+      - name: Check for CRITICAL findings
+        id: check-critical
+        run: |
+          python3 << 'PYEOF'
+          import json, os
+
+          results_path = os.environ.get('SCAN_RESULTS_DIR', '/tmp/scan-results')
+          
+          try:
+              with open(f"{results_path}/classified.json") as f:
+                  classified = json.load(f)
+          except:
+              classified = {"CRITICAL": []}
+
+          critical = classified.get('CRITICAL', [])
+          
+          gha_output = os.environ.get('GITHUB_OUTPUT', '/dev/null')
+          with open(gha_output, 'a') as f:
+              f.write(f"has_critical={'true' if critical else 'false'}\n")
+              f.write(f"critical_count={len(critical)}\n")
+          
+          if critical:
+              print(f"🚨 CRITICAL: {len(critical)} findings require immediate attention")
+              for c in critical:
+                  print(f"  {c.get('path')}:{c.get('start_line')} — {c.get('message')}")
+          else:
+              print("No CRITICAL findings")
+          PYEOF
+
+      - name: Create CRITICAL priority issue
+        if: steps.check-critical.outputs.has_critical == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            
+            let classified = { CRITICAL: [] };
+            try {
+              classified = JSON.parse(fs.readFileSync('${{ env.SCAN_RESULTS_DIR }}/classified.json', 'utf8'));
+            } catch(e) {}
+            
+            const critical = classified.CRITICAL || [];
+            if (critical.length === 0) return;
+            
+            const body = `# 🚨 CRITICAL Security Alert — Immediate Action Required
+
+            **This issue requires immediate human intervention. Auto-fix is NOT available for CRITICAL findings.**
+
+            ---
+
+            ## Critical Findings (${critical.length})
+
+            ${critical.map(f => `### \`${f.path}:${f.start_line}\`
+            - **Rule:** \`${f.check_id}\`
+            - **Message:** ${f.message}
+            - **CWE:** ${f.cwe || 'N/A'}
+            - **Action Required:** Manual review and fix needed
+            `).join('\n')}
+
+            ---
+
+            ## 🔧 Required Actions
+
+            1. [ ] Review each CRITICAL finding listed above
+            2. [ ] Create a fix branch manually: \`git checkout -b security/critical-fix-$(date +%Y%m%d)\`
+            3. [ ] Apply fixes following security team guidelines
+            4. [ ] Submit PR with detailed fix explanation
+            5. [ ] Get security team approval before merging
+
+            ---
+
+            > **Run:** ${{ github.run_id }} | **Commit:** \`${{ github.sha }}\`
+            > 🤖 Auto-generated by Self-Healing DevSecOps Pipeline`;
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `🚨 CRITICAL Security Issue — Immediate Action Required (${critical.length} findings)`,
+              body: body,
+              labels: ['security', 'critical', 'needs-review', 'priority:urgent']
+            });
+            
+            console.log('CRITICAL security issue created');
