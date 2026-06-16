@@ -1,0 +1,62 @@
+# .gitleaks.toml
+# Gitleaks カスタム設定
+# リポジトリ固有のシークレット検出ルール
+
+title = "Gitleaks Config — Iizuka LinkedIn Network"
+
+[extend]
+# 公式デフォルトルールを継承
+useDefault = true
+
+[[rules]]
+id = "generic-api-key-jp"
+description = "Japanese service API key pattern"
+regex = '''(?i)(API|APIキー|アクセスキー|秘密鍵)[_\-\s]*[:=][_\-\s]*["\']?([A-Za-z0-9_\-]{20,})["\']?'''
+severity = "HIGH"
+tags = ["secret", "api-key"]
+
+[[rules]]
+id = "github-pat-fine-grained"
+description = "GitHub Fine-Grained PAT"
+regex = '''github_pat_[A-Za-z0-9_]{82}'''
+severity = "CRITICAL"
+tags = ["secret", "github"]
+
+[[rules]]
+id = "notion-secret"
+description = "Notion API Secret"
+regex = '''secret_[A-Za-z0-9]{43}'''
+severity = "HIGH"
+tags = ["secret", "notion"]
+
+[[rules]]
+id = "zapier-webhook"
+description = "Zapier Webhook URL"
+regex = '''hooks\.zapier\.com/hooks/catch/[A-Za-z0-9/]+'''
+severity = "HIGH"
+tags = ["secret", "webhook"]
+
+[[rules]]
+id = "slack-webhook"
+description = "Slack Incoming Webhook"
+regex = '''hooks\.slack\.com/services/T[A-Z0-9]+/B[A-Z0-9]+/[A-Za-z0-9]+'''
+severity = "HIGH"
+tags = ["secret", "slack"]
+
+[allowlist]
+description = "Allowlist for known safe patterns"
+# テスト用のダミー値
+regexes = [
+  '''EXAMPLE_KEY_PLACEHOLDER''',
+  '''your_api_key_here''',
+  '''<YOUR_TOKEN>''',
+  '''xxx+placeholder''',
+  '''SECURITY_PLACEHOLDER'''
+]
+# スキャン除外パス
+paths = [
+  '''.git''',
+  '''node_modules''',
+  '''*.min.js''',
+  '''CHANGELOG.md'''
+]
