@@ -9,6 +9,8 @@ name: 🔍 Security Scan (Detect Phase)
 on:
   push:
     branches: [main, master]
+    paths-ignore:
+      - 'dependabot/**'
   schedule:
     # 毎日 02:00 JST (17:00 UTC) に実行
     - cron: '0 17 * * *'
