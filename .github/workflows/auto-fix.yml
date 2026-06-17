@@ -14,7 +14,7 @@ permissions:
   issues: write
 
 env:
-  FIX_BRANCH_PREFIX: "security/auto-fix"
+  FIX_BRANCH_PREFIX: security/auto-fix
   SCAN_RESULTS_DIR: /tmp/scan-results
 
 jobs:
@@ -22,7 +22,7 @@ jobs:
   owner-check:
     name: Owner Identity Verification
     runs-on: ubuntu-latest
-    if: |
+    if: >
       github.actor == 'ShinnosukeMoriFukuokaJP' ||
       github.actor == 'github-actions[bot]'
     outputs:
@@ -31,7 +31,7 @@ jobs:
       - name: Verify actor
         id: verify
         env:
-          REQUIRED_OWNER: "ShinnosukeMoriFukuokaJP"
+          REQUIRED_OWNER: ShinnosukeMoriFukuokaJP
         run: |
           REPO_OWNER="${{ github.repository_owner }}"
           if [ "$REPO_OWNER" != "$REQUIRED_OWNER" ]; then
@@ -57,11 +57,14 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: pip install semgrep --quiet
+      - name: Install Semgrep
+        run: pip install semgrep --quiet
       - name: Run Semgrep scan
         run: |
           mkdir -p ${{ env.SCAN_RESULTS_DIR }}
-          semgrep scan --config "p/owasp-top-ten" --config "p/secrets"             --json --output ${{ env.SCAN_RESULTS_DIR }}/semgrep.json             --no-error --quiet . 2>/dev/null || true
+          semgrep scan --config p/owasp-top-ten --config p/secrets \
+            --json --output ${{ env.SCAN_RESULTS_DIR }}/semgrep.json \
+            --no-error --quiet . 2>/dev/null || true
       - name: Classify and check
         id: check
         run: |
@@ -76,13 +79,13 @@ jobs:
           cl = {'CRITICAL': [], 'HIGH': [], 'MEDIUM': [], 'LOW': []}
           for r in data.get('results', []):
             sev = r.get('extra', {}).get('severity', 'INFO')
-            cl[smap.get(sev, 'LOW')].append({'path': r.get('path', ''), 'check_id': r.get('check_id', ''), 'start_line': r.get('start', {}).get('line', 0), 'message': r.get('extra', {}).get('message', '')})
+            cl[smap.get(sev, 'LOW')].append({'path': r.get('path',''), 'check_id': r.get('check_id',''), 'message': r.get('extra',{}).get('message','')})
           open(f'{p}/classified.json', 'w').write(json.dumps(cl, indent=2))
           high = cl.get('HIGH', [])
           fixable = [f for f in high if any(f.get('path','').endswith(e) for e in ['.py','.js','.ts'])]
           out = os.environ.get('GITHUB_OUTPUT', '/dev/null')
           open(out, 'a').write(f'has_fixable={str(bool(fixable)).lower()}\nfix_count={len(fixable)}\n')
-          print(f'Fixable HIGH: {len(fixable)} / Total: {sum(len(v) for v in cl.values())}')
+          print(f'Fixable: {len(fixable)}')
           "
 
   auto-fix-and-pr:
@@ -102,7 +105,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: pip install semgrep --quiet
+      - name: Install Semgrep
+        run: pip install semgrep --quiet
       - name: Create fix branch
         id: branch
         run: |
@@ -113,13 +117,15 @@ jobs:
         id: fix-engine
         run: |
           mkdir -p ${{ env.SCAN_RESULTS_DIR }}
-          semgrep scan --config "p/owasp-top-ten" --config "p/secrets"             --json --output ${{ env.SCAN_RESULTS_DIR }}/semgrep.json             --no-error --quiet . 2>/dev/null || true
+          semgrep scan --config p/owasp-top-ten --config p/secrets \
+            --json --output ${{ env.SCAN_RESULTS_DIR }}/semgrep.json \
+            --no-error --quiet . 2>/dev/null || true
           python3 -c "
           import json, os, re
           FIX = {
-            'eval': (re.compile(r'\beval\s*\('), lambda m: '/* SECURITY: eval() removed */(', 'Replaced eval()'),
-            'md5':  (re.compile(r'hashlib\.md5\s*\('), lambda m: 'hashlib.sha256(', 'MD5 to SHA-256'),
-            'debug':(re.compile(r'\bDEBUG\s*=\s*True\b'), lambda m: 'DEBUG = False', 'Debug disabled'),
+            'eval':  (re.compile(r'\beval\s*\('),        lambda m: '/* SECURITY: eval() removed */(',  'Replaced eval()'),
+            'md5':   (re.compile(r'hashlib\.md5\s*\('), lambda m: 'hashlib.sha256(',                  'MD5 to SHA-256'),
+            'debug': (re.compile(r'\bDEBUG\s*=\s*True\b'), lambda m: 'DEBUG = False',               'Debug disabled'),
           }
           p = os.environ.get('SCAN_RESULTS_DIR', '/tmp/scan-results')
           try:
@@ -132,8 +138,7 @@ jobs:
             fp = r.get('path', '')
             if not fp or not os.path.exists(fp): continue
             if not any(fp.endswith(e) for e in ['.py','.js','.ts']): continue
-            sev = r.get('extra', {}).get('severity', 'INFO')
-            if sev != 'ERROR': continue
+            if r.get('extra',{}).get('severity','INFO') != 'ERROR': continue
             try:
               orig = open(fp).read()
               for rid, (pat, rep, desc) in FIX.items():
@@ -174,24 +179,28 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            let r = {fix_count:0, fix_log:[]};
-            try { r = JSON.parse(fs.readFileSync('/tmp/scan-results/fix-result.json','utf8')); } catch(e) {}
+            let r = {fix_count: 0, fix_log: []};
+            try {
+              r = JSON.parse(fs.readFileSync('/tmp/scan-results/fix-result.json', 'utf8'));
+            } catch(e) {}
             const today = new Date().toISOString().split('T')[0];
-            const fixes = r.fix_log.map(f => '- ' + f.file + ' ' + f.desc).join('\n') || 'See diff';
+            const fixes = r.fix_log.map(f => '- ' + f.file + ': ' + f.desc).join('\n') || 'See diff';
+            const body = '## Security Auto-Fix\n\nOWNER-ONLY | Auto-merge PROHIBITED\n\n### Fixes\n' + fixes + '\n\nRun: ${{ github.run_id }}';
             const pr = await github.rest.pulls.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              title: '[Security Auto-Fix] ' + r.fix_count + ' HIGH issues patched - ' + today,
-              body: '## Automated Security Fix\n\nOWNER-ONLY | Auto-merge PROHIBITED\n\n### Fixes\n' + fixes + '\n\n> Run: ${{ github.run_id }}',
+              title: '[Security Auto-Fix] ' + r.fix_count + ' HIGH issues - ' + today,
+              body: body,
               head: '${{ steps.branch.outputs.branch }}',
               base: 'main',
               draft: false
             });
             try {
               await github.rest.issues.addLabels({
-                owner: context.repo.owner, repo: context.repo.repo,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
                 issue_number: pr.data.number,
-                labels: ['security','automated','auto-fix','needs-review']
+                labels: ['security', 'automated', 'auto-fix', 'needs-review']
               });
             } catch(e) {}
             console.log('PR #' + pr.data.number + ': ' + pr.data.html_url);
@@ -211,13 +220,13 @@ jobs:
           import json, os
           p = '/tmp/scan-results'
           try:
-            cl = json.load(open(f'{p}/classified.json')) if os.path.exists(f'{p}/classified.json') else {'CRITICAL':[]}
+            cl = json.load(open(f'{p}/classified.json')) if os.path.exists(f'{p}/classified.json') else {'CRITICAL': []}
           except:
-            cl = {'CRITICAL':[]}
+            cl = {'CRITICAL': []}
           c = cl.get('CRITICAL', [])
-          open(os.environ.get('GITHUB_OUTPUT','/dev/null'),'a').write(f'has_critical={str(bool(c)).lower()}\n')
+          open(os.environ.get('GITHUB_OUTPUT', '/dev/null'), 'a').write(f'has_critical={str(bool(c)).lower()}\n')
           print(f'CRITICAL: {len(c)}')
-          " || echo "Check skipped - no findings file"
+          " || echo "Check skipped"
       - name: Create CRITICAL issue
         if: steps.check-critical.outputs.has_critical == 'true'
         continue-on-error: true
@@ -225,8 +234,9 @@ jobs:
         with:
           script: |
             await github.rest.issues.create({
-              owner: context.repo.owner, repo: context.repo.repo,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
               title: 'CRITICAL Security Alert - Immediate Action Required',
-              body: '## CRITICAL\n\nManual fix required.\n\n> Run: ${{ github.run_id }}',
-              labels: ['security','critical','needs-review']
+              body: 'CRITICAL findings detected. Manual fix required. Run: ${{ github.run_id }}',
+              labels: ['security', 'critical', 'needs-review']
             });
