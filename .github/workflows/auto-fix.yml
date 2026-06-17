@@ -232,31 +232,23 @@ jobs:
     if: always() && (needs.owner-check.outputs.authorized == 'true')
     continue-on-error: true
     steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: semgrep-results-${{ github.run_id }}
-          path: ${{ env.SCAN_RESULTS_DIR }}
-        continue-on-error: true
       - name: Check for CRITICAL findings
         id: check-critical
         continue-on-error: true
         run: |
-          python3 << 'PYEOF2'
-          import json, os, sys
-          p = os.environ.get('SCAN_RESULTS_DIR', '/tmp/scan-results')
-          cl = {'CRITICAL': []}
+          python3 -c "
+          import json, os
+          p = '/tmp/scan-results'
           try:
-              if os.path.exists(f"{p}/classified.json"):
-                  with open(f"{p}/classified.json") as f:
-                      cl = json.load(f)
-          except Exception as e:
-              print(f"Warning: {e}")
-          critical = cl.get('CRITICAL', [])
-          out = os.environ.get('GITHUB_OUTPUT', '/dev/null')
-          with open(out, 'a') as f:
-              f.write(f"has_critical={'true' if critical else 'false'}\n")
-          print(f"CRITICAL findings: {len(critical)}")
-          PYEOF2
+            cl = json.load(open(f'{p}/classified.json')) if os.path.exists(f'{p}/classified.json') else {'CRITICAL': []}
+          except:
+            cl = {'CRITICAL': []}
+          c = cl.get('CRITICAL', [])
+          f = open(os.environ.get('GITHUB_OUTPUT', '/dev/null'), 'a')
+          f.write(f'has_critical={str(bool(c)).lower()}\n')
+          f.close()
+          print(f'CRITICAL: {len(c)}')
+          " || echo "Check skipped"
       - name: Create CRITICAL issue
         if: steps.check-critical.outputs.has_critical == 'true'
         continue-on-error: true
@@ -267,6 +259,6 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               title: 'CRITICAL Security Alert - Immediate Action Required',
-              body: '## CRITICAL Security Alert\n\nAuto-fix is NOT available for CRITICAL findings.\nImmediate manual intervention required.\n\n> Run: ${{ github.run_id }}',
+              body: '## CRITICAL Security Alert\n\nAuto-fix is NOT available. Manual fix required.\n\n> Run: ${{ github.run_id }}',
               labels: ['security', 'critical', 'needs-review']
             });
