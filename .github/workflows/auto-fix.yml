@@ -174,24 +174,27 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            let r = {fix_count:0,fix_log:[]};
-            try { r = JSON.parse(fs.readFileSync('${{ env.SCAN_RESULTS_DIR }}/fix-result.json','utf8')); } catch(e) {}
+            let r = {fix_count:0, fix_log:[]};
+            try { r = JSON.parse(fs.readFileSync('/tmp/scan-results/fix-result.json','utf8')); } catch(e) {}
+            const today = new Date().toISOString().split('T')[0];
+            const fixes = r.fix_log.map(f => '- ' + f.file + ' ' + f.desc).join('\n') || 'See diff';
             const pr = await github.rest.pulls.create({
-              owner: context.repo.owner, repo: context.repo.repo,
-              title: `[Security Auto-Fix] ${r.fix_count} HIGH issues patched - ${new Date().toISOString().split('T')[0]}`,
-              body: `## Automated Security Fix
-
-> **OWNER-ONLY** | **Auto-merge PROHIBITED**
-
-### Fixes
-${r.fix_log.map(f=>\`- \\`\${f.file}\\` \${f.desc}\`).join('\n')||'See diff'}
-
-> Run: ${{ github.run_id }}`,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '[Security Auto-Fix] ' + r.fix_count + ' HIGH issues patched - ' + today,
+              body: '## Automated Security Fix\n\nOWNER-ONLY | Auto-merge PROHIBITED\n\n### Fixes\n' + fixes + '\n\n> Run: ${{ github.run_id }}',
               head: '${{ steps.branch.outputs.branch }}',
-              base: 'main', draft: false
+              base: 'main',
+              draft: false
             });
-            try { await github.rest.issues.addLabels({owner:context.repo.owner,repo:context.repo.repo,issue_number:pr.data.number,labels:['security','automated','auto-fix','needs-review']}); } catch(e) {}
-            console.log(`PR #${pr.data.number}: ${pr.data.html_url}`);
+            try {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: pr.data.number,
+                labels: ['security','automated','auto-fix','needs-review']
+              });
+            } catch(e) {}
+            console.log('PR #' + pr.data.number + ': ' + pr.data.html_url);
 
   critical-alert:
     name: Critical Alert Handler
