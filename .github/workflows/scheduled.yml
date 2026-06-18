@@ -1,0 +1,475 @@
+name: "🕐 Scheduled Scan — Security OS"
+
+on:
+  schedule:
+    # 毎日 03:00 JST (18:00 UTC前日) = 軽量スキャン
+    - cron: "0 18 * * *"
+    # 毎週月曜 09:00 JST (00:00 UTC月曜) = フルスキャン
+    - cron: "0 0 * * 1"
+  workflow_dispatch:
+    inputs:
+      scan_mode:
+        description: "Scan mode"
+        required: true
+        type: choice
+        default: "full"
+        options:
+          - full
+          - quick
+          - secrets-only
+
+permissions:
+  contents: read
+  issues: write
+  actions: read
+  security-events: write
+
+jobs:
+  # ─────────────────────────────────────────
+  # S-0: Determine scan mode
+  # ─────────────────────────────────────────
+  scan-config:
+    name: "S-0 | Configure Scan Mode"
+    runs-on: ubuntu-latest
+    outputs:
+      mode: ${{ steps.mode.outputs.mode }}
+      run_nuclei: ${{ steps.mode.outputs.run_nuclei }}
+      run_full_semgrep: ${{ steps.mode.outputs.run_full_semgrep }}
+    steps:
+      - name: Determine mode
+        id: mode
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            MODE="${{ inputs.scan_mode }}"
+          elif [ "$(date -u +%u)" = "1" ]; then
+            # 月曜日 = フルスキャン
+            MODE="full"
+          else
+            MODE="quick"
+          fi
+
+          echo "mode=$MODE" >> $GITHUB_OUTPUT
+
+          case "$MODE" in
+            full)
+              echo "run_nuclei=true" >> $GITHUB_OUTPUT
+              echo "run_full_semgrep=true" >> $GITHUB_OUTPUT
+              ;;
+            quick)
+              echo "run_nuclei=false" >> $GITHUB_OUTPUT
+              echo "run_full_semgrep=false" >> $GITHUB_OUTPUT
+              ;;
+            secrets-only)
+              echo "run_nuclei=false" >> $GITHUB_OUTPUT
+              echo "run_full_semgrep=false" >> $GITHUB_OUTPUT
+              ;;
+          esac
+
+          echo "🕐 Scheduled scan starting: mode=$MODE at $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_STEP_SUMMARY
+
+  # ─────────────────────────────────────────
+  # S-1: Secrets Scan (every run)
+  # ─────────────────────────────────────────
+  scheduled-secrets:
+    name: "S-1 | Secrets Scan (Gitleaks)"
+    runs-on: ubuntu-latest
+    needs: scan-config
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Gitleaks — full repo history scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+        continue-on-error: true
+
+      - name: Upload Gitleaks report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scheduled-gitleaks-${{ github.run_id }}
+          path: results.sarif
+          retention-days: 90
+          if-no-files-found: ignore
+
+  # ─────────────────────────────────────────
+  # S-2: SAST (quick or full)
+  # ─────────────────────────────────────────
+  scheduled-sast:
+    name: "S-2 | SAST Scan (Semgrep)"
+    runs-on: ubuntu-latest
+    needs: scan-config
+    if: needs.scan-config.outputs.mode != 'secrets-only'
+    container:
+      image: semgrep/semgrep
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Semgrep — quick scan
+        if: needs.scan-config.outputs.run_full_semgrep != 'true'
+        run: |
+          semgrep ci \
+            --config=p/secrets \
+            --config=p/security-audit \
+            --sarif \
+            --output=semgrep-scheduled.sarif \
+            --no-autofix \
+            2>&1 | tee semgrep-log.txt || true
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+
+      - name: Semgrep — full scan (weekly)
+        if: needs.scan-config.outputs.run_full_semgrep == 'true'
+        run: |
+          semgrep ci \
+            --config=p/owasp-top-ten \
+            --config=p/security-audit \
+            --config=p/secrets \
+            --config=p/javascript \
+            --config=p/python \
+            --config=p/ci \
+            --sarif \
+            --output=semgrep-scheduled.sarif \
+            --no-autofix \
+            2>&1 | tee semgrep-log.txt || true
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+
+      - name: Upload SARIF to Code Scanning
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: semgrep-scheduled.sarif
+          category: semgrep-scheduled
+        continue-on-error: true
+
+      - name: Upload Semgrep report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scheduled-semgrep-${{ github.run_id }}
+          path: |
+            semgrep-scheduled.sarif
+            semgrep-log.txt
+          retention-days: 90
+          if-no-files-found: ignore
+
+  # ─────────────────────────────────────────
+  # S-3: External Attack Surface (weekly only)
+  # ─────────────────────────────────────────
+  scheduled-nuclei:
+    name: "S-3 | Attack Surface (Nuclei)"
+    runs-on: ubuntu-latest
+    needs: scan-config
+    if: needs.scan-config.outputs.run_nuclei == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Nuclei
+        run: |
+          wget -q https://github.com/projectdiscovery/nuclei/releases/latest/download/nuclei_$(uname -s)_amd64.zip -O nuclei.zip
+          unzip -q nuclei.zip
+          chmod +x nuclei
+
+      - name: Extract and deduplicate URLs
+        run: |
+          grep -rh "https\?://[a-zA-Z0-9._/-]*" . \
+            --include="*.md" --include="*.yaml" --include="*.yml" --include="*.json" \
+            -o | sort -u \
+            | grep -v "github.com/actions\|schemas.github.com\|api.github.com" \
+            > targets.txt || true
+          echo "Target URLs: $(wc -l < targets.txt)"
+          cat targets.txt
+
+      - name: Run Nuclei scan
+        run: |
+          if [ -s targets.txt ]; then
+            ./nuclei -l targets.txt \
+              -t http/exposures/ \
+              -t http/misconfiguration/ \
+              -t http/technologies/ \
+              -t http/cves/ \
+              -severity medium,high,critical \
+              -json \
+              -o nuclei-scheduled.json \
+              -silent \
+              -rate-limit 10 \
+              -timeout 5 || true
+          else
+            echo "[]" > nuclei-scheduled.json
+          fi
+
+      - name: Upload Nuclei results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scheduled-nuclei-${{ github.run_id }}
+          path: |
+            nuclei-scheduled.json
+            targets.txt
+          retention-days: 90
+          if-no-files-found: ignore
+
+  # ─────────────────────────────────────────
+  # S-4: Dependency Check
+  # ─────────────────────────────────────────
+  scheduled-deps:
+    name: "S-4 | Dependency Audit"
+    runs-on: ubuntu-latest
+    needs: scan-config
+    if: needs.scan-config.outputs.mode != 'secrets-only'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: npm audit
+        run: |
+          if [ -f "package.json" ]; then
+            npm audit --audit-level=moderate --json > npm-audit-scheduled.json 2>&1 || true
+          else
+            echo '{"message":"No package.json"}' > npm-audit-scheduled.json
+          fi
+
+      - name: pip-audit
+        run: |
+          if [ -f "requirements.txt" ]; then
+            pip install pip-audit --quiet
+            pip-audit -r requirements.txt --format=json --output=pip-audit-scheduled.json || true
+          else
+            echo '{"message":"No requirements.txt"}' > pip-audit-scheduled.json
+          fi
+
+      - name: Upload dependency reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scheduled-deps-${{ github.run_id }}
+          path: |
+            npm-audit-scheduled.json
+            pip-audit-scheduled.json
+          retention-days: 90
+          if-no-files-found: ignore
+
+  # ─────────────────────────────────────────
+  # S-5: Audit Log Entry & Issue Report
+  # ─────────────────────────────────────────
+  audit-log:
+    name: "S-5 | Audit Log & Summary Issue"
+    runs-on: ubuntu-latest
+    needs: [scan-config, scheduled-secrets, scheduled-sast, scheduled-deps]
+    if: always()
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download all scheduled artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: "scheduled-*-${{ github.run_id }}"
+          merge-multiple: true
+          path: ./scan-results
+        continue-on-error: true
+
+      - name: Generate audit log entry
+        run: |
+          TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          DATE=$(date -u +%Y-%m-%d)
+          MODE="${{ needs.scan-config.outputs.mode }}"
+
+          python3 << 'PYEOF'
+          import json
+          import glob
+          import os
+          from datetime import datetime
+
+          timestamp = os.environ.get("TIMESTAMP", datetime.utcnow().isoformat() + "Z")
+          date = os.environ.get("DATE", datetime.utcnow().strftime("%Y-%m-%d"))
+          mode = os.environ.get("MODE", "unknown")
+
+          summary = {
+              "timestamp": timestamp,
+              "date": date,
+              "run_id": os.environ.get("GITHUB_RUN_ID", ""),
+              "mode": mode,
+              "findings": {
+                  "secrets": 0,
+                  "sast": 0,
+                  "dependencies": 0,
+                  "nuclei": 0,
+                  "total": 0
+              },
+              "jobs": {
+                  "secrets": os.environ.get("SECRETS_RESULT", "unknown"),
+                  "sast": os.environ.get("SAST_RESULT", "unknown"),
+                  "deps": os.environ.get("DEPS_RESULT", "unknown"),
+              }
+          }
+
+          # Count SARIF findings
+          for sarif_path in glob.glob("scan-results/**/*.sarif", recursive=True):
+              try:
+                  with open(sarif_path) as f:
+                      sarif = json.load(f)
+                  count = sum(len(run.get("results", [])) for run in sarif.get("runs", []))
+                  if "gitleaks" in sarif_path.lower():
+                      summary["findings"]["secrets"] += count
+                  else:
+                      summary["findings"]["sast"] += count
+              except:
+                  pass
+
+          # Count npm audit
+          for npm_path in glob.glob("scan-results/**/npm-audit*.json", recursive=True):
+              try:
+                  with open(npm_path) as f:
+                      npm = json.load(f)
+                  summary["findings"]["dependencies"] += len(npm.get("vulnerabilities", {}))
+              except:
+                  pass
+
+          # Count nuclei
+          for nuclei_path in glob.glob("scan-results/**/*nuclei*.json", recursive=True):
+              try:
+                  with open(nuclei_path) as f:
+                      content = f.read().strip()
+                  if content and content != "[]":
+                      lines = [l for l in content.split("\n") if l.strip()]
+                      summary["findings"]["nuclei"] += len(lines)
+              except:
+                  pass
+
+          summary["findings"]["total"] = sum(summary["findings"].values())
+
+          with open("audit-log-entry.json", "w") as f:
+              json.dump(summary, f, indent=2)
+
+          print(json.dumps(summary, indent=2))
+          PYEOF
+        env:
+          TIMESTAMP: "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          DATE: "$(date -u +%Y-%m-%d)"
+          MODE: "${{ needs.scan-config.outputs.mode }}"
+          SECRETS_RESULT: "${{ needs.scheduled-secrets.result }}"
+          SAST_RESULT: "${{ needs.scheduled-sast.result }}"
+          DEPS_RESULT: "${{ needs.scheduled-deps.result }}"
+
+      - name: Write GitHub Step Summary
+        run: |
+          python3 << 'PYEOF'
+          import json
+
+          try:
+              with open("audit-log-entry.json") as f:
+                  s = json.load(f)
+          except:
+              s = {}
+
+          findings = s.get("findings", {})
+          total = findings.get("total", 0)
+          emoji = "🚨" if total > 20 else "⚠️" if total > 5 else "✅"
+
+          lines = [
+              "## 🕐 Scheduled Security Scan — Audit Log",
+              "",
+              f"| Field | Value |",
+              f"|-------|-------|",
+              f"| Timestamp | {s.get('timestamp', 'N/A')} |",
+              f"| Mode | `{s.get('mode', 'N/A')}` |",
+              f"| Run ID | {s.get('run_id', 'N/A')} |",
+              f"| Total Findings | {emoji} **{total}** |",
+              "",
+              "### Findings Breakdown",
+              "",
+              "| Scanner | Count |",
+              "|---------|-------|",
+              f"| 🔑 Secrets (Gitleaks) | {findings.get('secrets', 0)} |",
+              f"| 🔍 SAST (Semgrep) | {findings.get('sast', 0)} |",
+              f"| 📦 Dependencies | {findings.get('dependencies', 0)} |",
+              f"| 🌐 Attack Surface (Nuclei) | {findings.get('nuclei', 0)} |",
+              "",
+              "### Job Results",
+              "",
+              "| Job | Result |",
+              "|-----|--------|",
+          ]
+
+          for job, result in s.get("jobs", {}).items():
+              icon = "✅" if result == "success" else "❌" if result == "failure" else "⏭️"
+              lines.append(f"| {job} | {icon} {result} |")
+
+          with open(os.environ.get("GITHUB_STEP_SUMMARY", "/dev/null"), "a") as f:
+              f.write("\n".join(lines))
+          PYEOF
+
+      - name: Upload audit log
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-log-${{ github.run_id }}
+          path: audit-log-entry.json
+          retention-days: 365  # 監査ログは1年保持
+
+      - name: Create weekly summary issue (full scan only)
+        if: needs.scan-config.outputs.mode == 'full'
+        run: |
+          python3 << 'PYEOF'
+          import json
+
+          try:
+              with open("audit-log-entry.json") as f:
+                  s = json.load(f)
+          except:
+              s = {}
+
+          findings = s.get("findings", {})
+          total = findings.get("total", 0)
+          emoji = "🚨" if total > 20 else "⚠️" if total > 5 else "✅"
+
+          body = f"""## {emoji} Weekly Security OS Scan Report
+
+          **Date:** {s.get('date', 'N/A')}
+          **Mode:** Full Scan (Weekly)
+          **Run:** [{s.get('run_id', '')}](https://github.com/${{github.repository}}/actions/runs/${{github.run_id}})
+
+          ## Findings Summary
+
+          | Scanner | Count |
+          |---------|-------|
+          | 🔑 Secrets (Gitleaks) | {findings.get('secrets', 0)} |
+          | 🔍 SAST (Semgrep) | {findings.get('sast', 0)} |
+          | 📦 Dependencies | {findings.get('dependencies', 0)} |
+          | 🌐 Attack Surface (Nuclei) | {findings.get('nuclei', 0)} |
+          | **Total** | **{total}** |
+
+          ## Status
+
+          {'🚨 Action required — review findings artifacts immediately.' if total > 10 else '✅ Within acceptable range. Review artifacts for details.'}
+
+          ---
+          *Security OS — Scheduled Scan | Auto-generated*
+          """
+
+          with open("weekly-issue-body.md", "w") as f:
+              f.write(body)
+          PYEOF
+
+      - name: Post weekly issue
+        if: needs.scan-config.outputs.mode == 'full'
+        uses: peter-evans/create-issue-from-file@v5
+        with:
+          title: "📊 [Security OS] Weekly Scan Report — ${{ github.run_id }}"
+          content-filepath: weekly-issue-body.md
+          labels: |
+            security
+            weekly-report
+            automated-report
