@@ -1,0 +1,263 @@
+name: "📊 Analyze Layer — Security OS"
+
+on:
+  workflow_run:
+    workflows: ["🔍 Detect Layer — Security OS"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "Target detect workflow run_id"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+  actions: read
+
+jobs:
+  # ─────────────────────────────────────────
+  # A-1: Download & Parse Detection Artifacts
+  # ─────────────────────────────────────────
+  parse-results:
+    name: "A-1 | Parse Detection Reports"
+    runs-on: ubuntu-latest
+    outputs:
+      has_critical: ${{ steps.classify.outputs.has_critical }}
+      has_high: ${{ steps.classify.outputs.has_high }}
+      has_medium: ${{ steps.classify.outputs.has_medium }}
+      findings_json: ${{ steps.classify.outputs.findings_json }}
+      source_run_id: ${{ steps.resolve.outputs.source_run_id }}
+    steps:
+      - name: Resolve source run_id
+        id: resolve
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            echo "source_run_id=${{ github.event.workflow_run.id }}" >> $GITHUB_OUTPUT
+          else
+            echo "source_run_id=${{ inputs.run_id }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Download detection artifacts
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ steps.resolve.outputs.source_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ./raw-reports
+        continue-on-error: true
+
+      - name: Install analysis tools
+        run: |
+          sudo apt-get install -y jq python3 python3-pip --quiet
+          pip install sarif-tools --quiet 2>/dev/null || true
+
+      - name: Classify findings by severity
+        id: classify
+        run: |
+          python3 << 'PYEOF'
+          import json
+          import os
+          import glob
+
+          findings = {
+              "CRITICAL": [],
+              "HIGH": [],
+              "MEDIUM": [],
+              "LOW": []
+          }
+
+          # Parse SARIF files (Semgrep / Gitleaks)
+          sarif_files = glob.glob("raw-reports/**/*.sarif", recursive=True)
+          for sarif_path in sarif_files:
+              try:
+                  with open(sarif_path) as f:
+                      sarif = json.load(f)
+                  for run in sarif.get("runs", []):
+                      tool_name = run.get("tool", {}).get("driver", {}).get("name", "unknown")
+                      rules = {r["id"]: r for r in run.get("tool", {}).get("driver", {}).get("rules", [])}
+                      for result in run.get("results", []):
+                          rule_id = result.get("ruleId", "unknown")
+                          level = result.get("level", "note")
+                          rule_meta = rules.get(rule_id, {})
+                          
+                          # Severity mapping
+                          severity_prop = rule_meta.get("properties", {}).get("security-severity", "")
+                          if severity_prop:
+                              score = float(severity_prop)
+                              if score >= 9.0:   sev = "CRITICAL"
+                              elif score >= 7.0: sev = "HIGH"
+                              elif score >= 4.0: sev = "MEDIUM"
+                              else:              sev = "LOW"
+                          elif level == "error":   sev = "HIGH"
+                          elif level == "warning": sev = "MEDIUM"
+                          else:                    sev = "LOW"
+
+                          locations = result.get("locations", [{}])
+                          loc = locations[0].get("physicalLocation", {}) if locations else {}
+                          file_path = loc.get("artifactLocation", {}).get("uri", "unknown")
+                          line = loc.get("region", {}).get("startLine", 0)
+                          message = result.get("message", {}).get("text", "No description")
+
+                          findings[sev].append({
+                              "tool": tool_name,
+                              "rule_id": rule_id,
+                              "file": file_path,
+                              "line": line,
+                              "message": message[:200],
+                              "fixable": "secret" in rule_id.lower() or "hardcoded" in rule_id.lower()
+                          })
+              except Exception as e:
+                  print(f"SARIF parse error ({sarif_path}): {e}")
+
+          # Parse npm audit
+          npm_files = glob.glob("raw-reports/**/npm-audit.json", recursive=True)
+          for npm_path in npm_files:
+              try:
+                  with open(npm_path) as f:
+                      npm = json.load(f)
+                  vulns = npm.get("vulnerabilities", {})
+                  for pkg, info in vulns.items():
+                      sev = info.get("severity", "low").upper()
+                      if sev not in findings: sev = "LOW"
+                      findings[sev].append({
+                          "tool": "npm-audit",
+                          "rule_id": f"npm-{pkg}",
+                          "file": "package.json",
+                          "line": 0,
+                          "message": f"Vulnerable package: {pkg} ({info.get('range', 'unknown')})",
+                          "fixable": bool(info.get("fixAvailable"))
+                      })
+              except Exception as e:
+                  print(f"npm audit parse error: {e}")
+
+          # Summarize
+          total = sum(len(v) for v in findings.values())
+          print(f"FINDINGS: CRITICAL={len(findings['CRITICAL'])} HIGH={len(findings['HIGH'])} MEDIUM={len(findings['MEDIUM'])} LOW={len(findings['LOW'])} TOTAL={total}")
+
+          # Write outputs
+          with open("findings.json", "w") as f:
+              json.dump(findings, f, indent=2)
+
+          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+              out.write(f"has_critical={'true' if findings['CRITICAL'] else 'false'}\n")
+              out.write(f"has_high={'true' if findings['HIGH'] else 'false'}\n")
+              out.write(f"has_medium={'true' if findings['MEDIUM'] else 'false'}\n")
+              # Compact JSON for output
+              compact = json.dumps(findings, separators=(",", ":"))
+              out.write(f"findings_json={compact}\n")
+          PYEOF
+
+      - name: Upload classified findings
+        uses: actions/upload-artifact@v4
+        with:
+          name: classified-findings-${{ github.run_id }}
+          path: findings.json
+          retention-days: 90
+
+  # ─────────────────────────────────────────
+  # A-2: Risk Assessment
+  # ─────────────────────────────────────────
+  risk-assessment:
+    name: "A-2 | Risk Assessment & Impact Analysis"
+    runs-on: ubuntu-latest
+    needs: parse-results
+    outputs:
+      risk_score: ${{ steps.score.outputs.risk_score }}
+      risk_label: ${{ steps.score.outputs.risk_label }}
+      action_required: ${{ steps.score.outputs.action_required }}
+    steps:
+      - name: Calculate risk score
+        id: score
+        run: |
+          python3 << 'PYEOF'
+          import json
+          import os
+
+          findings_raw = os.environ.get("FINDINGS_JSON", "{}")
+          try:
+              findings = json.loads(findings_raw)
+          except:
+              findings = {"CRITICAL": [], "HIGH": [], "MEDIUM": [], "LOW": []}
+
+          # Risk scoring model
+          score = (
+              len(findings.get("CRITICAL", [])) * 40 +
+              len(findings.get("HIGH", []))     * 15 +
+              len(findings.get("MEDIUM", []))   *  5 +
+              len(findings.get("LOW", []))       *  1
+          )
+
+          if score >= 40:
+              label = "CRITICAL"
+              action = "pipeline_fail"
+          elif score >= 15:
+              label = "HIGH"
+              action = "pr_block"
+          elif score >= 5:
+              label = "MEDIUM"
+              action = "pr_comment"
+          else:
+              label = "LOW"
+              action = "log_only"
+
+          print(f"Risk Score: {score} | Label: {label} | Action: {action}")
+
+          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+              out.write(f"risk_score={score}\n")
+              out.write(f"risk_label={label}\n")
+              out.write(f"action_required={action}\n")
+          PYEOF
+        env:
+          FINDINGS_JSON: ${{ needs.parse-results.outputs.findings_json }}
+
+      - name: Write analysis summary
+        run: |
+          echo "## 📊 Analysis Layer — Risk Assessment" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Risk Score | ${{ steps.score.outputs.risk_score }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Risk Label | **${{ steps.score.outputs.risk_label }}** |" >> $GITHUB_STEP_SUMMARY
+          echo "| Action Required | \`${{ steps.score.outputs.action_required }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Has CRITICAL | ${{ needs.parse-results.outputs.has_critical }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Has HIGH | ${{ needs.parse-results.outputs.has_high }} |" >> $GITHUB_STEP_SUMMARY
+
+  # ─────────────────────────────────────────
+  # A-3: Trigger Response Layer
+  # ─────────────────────────────────────────
+  trigger-response:
+    name: "A-3 | Dispatch to Response Layer"
+    runs-on: ubuntu-latest
+    needs: [parse-results, risk-assessment]
+    steps:
+      - name: Write analysis report artifact
+        run: |
+          cat > analysis-report.json << EOF
+          {
+            "run_id": "${{ github.run_id }}",
+            "source_run_id": "${{ needs.parse-results.outputs.source_run_id }}",
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "risk_score": ${{ needs.risk-assessment.outputs.risk_score }},
+            "risk_label": "${{ needs.risk-assessment.outputs.risk_label }}",
+            "action_required": "${{ needs.risk-assessment.outputs.action_required }}",
+            "has_critical": ${{ needs.parse-results.outputs.has_critical }},
+            "has_high": ${{ needs.parse-results.outputs.has_high }},
+            "has_medium": ${{ needs.parse-results.outputs.has_medium }}
+          }
+          EOF
+
+      - name: Upload analysis report
+        uses: actions/upload-artifact@v4
+        with:
+          name: analysis-report-${{ github.run_id }}
+          path: analysis-report.json
+          retention-days: 90
+
+      - name: Fail pipeline on CRITICAL
+        if: needs.risk-assessment.outputs.risk_label == 'CRITICAL'
+        run: |
+          echo "::error::🚨 CRITICAL severity findings detected. Risk Score: ${{ needs.risk-assessment.outputs.risk_score }}"
+          echo "::error::Pipeline halted. Review classified-findings artifact for details."
+          exit 1
