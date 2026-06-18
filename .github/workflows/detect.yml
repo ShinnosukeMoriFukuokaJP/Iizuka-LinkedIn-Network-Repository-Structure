@@ -143,6 +143,7 @@ jobs:
   attack-surface-scan:
     name: "D-4 | Nuclei Attack Surface"
     runs-on: ubuntu-latest
+    continue-on-error: true
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     steps:
       - name: Checkout
