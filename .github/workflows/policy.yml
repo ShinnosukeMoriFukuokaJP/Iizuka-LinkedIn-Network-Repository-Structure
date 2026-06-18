@@ -54,49 +54,50 @@ jobs:
 
       - name: Evaluate policy compliance
         id: policy
+        env:
+          PROTECTION_EXISTS: ${{ steps.bp_check.outputs.protection_exists }}
+          REQUIRED_COUNT: ${{ steps.bp_check.outputs.required_count }}
+          DISMISS_STALE: ${{ steps.bp_check.outputs.dismiss_stale }}
+          REQUIRE_STATUS: ${{ steps.bp_check.outputs.require_status }}
         run: |
-          VIOLATIONS=()
-          PASS=true
+          python3 << 'PYEOF'
+          import os
 
-          # Rule 1: Branch protection must exist
-          if [ "${{ steps.bp_check.outputs.protection_exists }}" != "true" ]; then
-            VIOLATIONS+=("CRITICAL: Branch protection not configured on main")
-            PASS=false
-          fi
+          violations = []
+          passed = True
 
-          # Rule 2: PR reviews required
-          COUNT="${{ steps.bp_check.outputs.required_count }}"
-          if [ -z "$COUNT" ] || [ "$COUNT" = "0" ] || [ "$COUNT" = "null" ]; then
-            VIOLATIONS+=("HIGH: No required PR reviewers set on main")
-            PASS=false
-          fi
+          if os.environ.get("PROTECTION_EXISTS") != "true":
+              violations.append("CRITICAL: Branch protection not configured on main")
+              passed = False
 
-          # Rule 3: Stale reviews dismissed
-          if [ "${{ steps.bp_check.outputs.dismiss_stale }}" != "true" ]; then
-            VIOLATIONS+=("MEDIUM: Stale review dismissal not enabled")
-          fi
+          count = os.environ.get("REQUIRED_COUNT", "0")
+          if not count or count in ("0", "null", ""):
+              violations.append("HIGH: No required PR reviewers set on main")
+              passed = False
 
-          # Rule 4: Status checks required
-          if [ "${{ steps.bp_check.outputs.require_status }}" != "true" ]; then
-            VIOLATIONS+=("MEDIUM: Required status checks not strict")
-          fi
+          if os.environ.get("DISMISS_STALE") != "true":
+              violations.append("MEDIUM: Stale review dismissal not enabled")
 
-          # Output results
-          echo "pass=$PASS" >> $GITHUB_OUTPUT
-          printf '%s\n' "${VIOLATIONS[@]}" > violations.txt
-          echo "violation_count=${#VIOLATIONS[@]}" >> $GITHUB_OUTPUT
+          if os.environ.get("REQUIRE_STATUS") != "true":
+              violations.append("MEDIUM: Required status checks not strict")
 
-          echo "## 🏛️ Branch Protection Policy" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          if [ "$PASS" = "true" ]; then
-            echo "✅ All critical policies satisfied" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "⚠️ Policy violations detected (configure branch protection):" >> $GITHUB_STEP_SUMMARY
-            printf '- %s\n' "${VIOLATIONS[@]}" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "→ Go to: Settings → Branches → Add protection rule for main" >> $GITHUB_STEP_SUMMARY
-          fi
-          # Note: violations are reported but do not fail pipeline (handled via Issue on schedule)
+          with open("violations.txt", "w") as f:
+              f.write("\n".join(violations))
+
+          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+              out.write(f"pass={'true' if passed else 'false'}\n")
+              out.write(f"violation_count={len(violations)}\n")
+
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as s:
+              s.write("## 🏛️ Branch Protection Policy\n\n")
+              if passed:
+                  s.write("✅ All critical policies satisfied\n")
+              else:
+                  s.write("⚠️ Policy violations detected:\n")
+                  for v in violations:
+                      s.write(f"- {v}\n")
+                  s.write("\n→ Settings → Branches → Add protection rule for main\n")
+          PYEOF
 
       - name: Upload violation report
         if: always()
