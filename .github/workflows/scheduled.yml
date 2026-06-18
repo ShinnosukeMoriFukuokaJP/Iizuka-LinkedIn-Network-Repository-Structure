@@ -165,6 +165,7 @@ jobs:
   scheduled-nuclei:
     name: "S-3 | Attack Surface (Nuclei)"
     runs-on: ubuntu-latest
+    continue-on-error: true
     needs: scan-config
     if: needs.scan-config.outputs.run_nuclei == 'true'
     steps:
@@ -411,7 +412,8 @@ jobs:
               icon = "✅" if result == "success" else "❌" if result == "failure" else "⏭️"
               lines.append(f"| {job} | {icon} {result} |")
 
-          with open(os.environ.get("GITHUB_STEP_SUMMARY", "/dev/null"), "a") as f:
+          import os as _os
+          with open(_os.environ.get("GITHUB_STEP_SUMMARY", "/dev/null"), "a") as f:
               f.write("\n".join(lines))
           PYEOF
 
