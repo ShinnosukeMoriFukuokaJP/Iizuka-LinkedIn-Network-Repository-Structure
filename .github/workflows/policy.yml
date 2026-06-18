@@ -163,7 +163,7 @@ jobs:
             [ -f "$wf" ] || continue
 
             # Detect echo of secret values
-            if grep -nP "echo\s+\${{.*secrets\." "$wf" 2>/dev/null; then
+            if grep -nP 'echo\s+\$\{\{.*secrets\.' "$wf" 2>/dev/null; then
               echo "::error file=$wf::Potential secret leakage via echo detected"
               ISSUES=$((ISSUES + 1))
             fi
