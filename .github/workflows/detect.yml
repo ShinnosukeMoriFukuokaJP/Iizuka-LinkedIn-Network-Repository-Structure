@@ -1,0 +1,246 @@
+name: "🔍 Detect Layer — Security OS"
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+  pull-requests: read
+
+jobs:
+  # ─────────────────────────────────────────
+  # D-1: Secret Detection (Gitleaks)
+  # ─────────────────────────────────────────
+  secret-detection:
+    name: "D-1 | Gitleaks Secret Scan"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+        continue-on-error: true
+
+      - name: Upload Gitleaks report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gitleaks-report-${{ github.run_id }}
+          path: results.sarif
+          retention-days: 90
+          if-no-files-found: ignore
+
+  # ─────────────────────────────────────────
+  # D-2: Static Analysis (Semgrep)
+  # ─────────────────────────────────────────
+  static-analysis:
+    name: "D-2 | Semgrep SAST"
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run Semgrep — OWASP + Security Audit
+        run: |
+          semgrep ci \
+            --config=p/owasp-top-ten \
+            --config=p/security-audit \
+            --config=p/secrets \
+            --config=p/javascript \
+            --config=p/python \
+            --sarif \
+            --output=semgrep-results.sarif \
+            --error \
+            --severity=ERROR \
+            --severity=WARNING \
+            --no-autofix \
+            2>&1 | tee semgrep-raw.log || true
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+
+      - name: Upload Semgrep SARIF
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: semgrep-report-${{ github.run_id }}
+          path: |
+            semgrep-results.sarif
+            semgrep-raw.log
+          retention-days: 90
+          if-no-files-found: ignore
+
+      - name: Upload to GitHub Code Scanning
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: semgrep-results.sarif
+          category: semgrep
+        continue-on-error: true
+
+  # ─────────────────────────────────────────
+  # D-3: Dependency Vulnerability Check
+  # ─────────────────────────────────────────
+  dependency-check:
+    name: "D-3 | Dependency Audit"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: npm audit (if package.json exists)
+        run: |
+          if [ -f "package.json" ]; then
+            npm audit --audit-level=moderate --json > npm-audit.json 2>&1 || true
+            echo "npm_audit_exists=true" >> $GITHUB_ENV
+          else
+            echo '{"message":"No package.json found"}' > npm-audit.json
+            echo "npm_audit_exists=false" >> $GITHUB_ENV
+          fi
+
+      - name: pip-audit (if requirements.txt exists)
+        run: |
+          if [ -f "requirements.txt" ]; then
+            pip install pip-audit --quiet
+            pip-audit -r requirements.txt --format=json --output=pip-audit.json || true
+            echo "pip_audit_exists=true" >> $GITHUB_ENV
+          else
+            echo '{"message":"No requirements.txt found"}' > pip-audit.json
+            echo "pip_audit_exists=false" >> $GITHUB_ENV
+          fi
+
+      - name: Upload Dependency reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-report-${{ github.run_id }}
+          path: |
+            npm-audit.json
+            pip-audit.json
+          retention-days: 90
+          if-no-files-found: ignore
+
+  # ─────────────────────────────────────────
+  # D-4: Attack Surface Scan (Nuclei)
+  # ─────────────────────────────────────────
+  attack-surface-scan:
+    name: "D-4 | Nuclei Attack Surface"
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Nuclei
+        run: |
+          wget -q https://github.com/projectdiscovery/nuclei/releases/latest/download/nuclei_$(uname -s)_amd64.zip -O nuclei.zip
+          unzip -q nuclei.zip
+          chmod +x nuclei
+          ./nuclei -version
+
+      - name: Extract target URLs from repo
+        run: |
+          grep -rh "https\?://[a-zA-Z0-9./-]*" . \
+            --include="*.md" --include="*.yaml" --include="*.yml" --include="*.json" \
+            -o | sort -u | grep -v "github.com/actions" | grep -v "schemas.github.com" \
+            > targets.txt || true
+          echo "Found $(wc -l < targets.txt) URLs to scan"
+          cat targets.txt
+
+      - name: Run Nuclei scan
+        run: |
+          if [ -s targets.txt ]; then
+            ./nuclei -l targets.txt \
+              -t http/exposures/ \
+              -t http/misconfiguration/ \
+              -t http/technologies/ \
+              -severity medium,high,critical \
+              -json \
+              -o nuclei-results.json \
+              -silent || true
+          else
+            echo '[]' > nuclei-results.json
+            echo "No external URLs found to scan"
+          fi
+
+      - name: Upload Nuclei results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuclei-report-${{ github.run_id }}
+          path: |
+            nuclei-results.json
+            targets.txt
+          retention-days: 90
+          if-no-files-found: ignore
+
+  # ─────────────────────────────────────────
+  # D-5: Aggregate & Pass to Analyze Layer
+  # ─────────────────────────────────────────
+  aggregate-detect:
+    name: "D-5 | Aggregate Detection Results"
+    runs-on: ubuntu-latest
+    needs: [secret-detection, static-analysis, dependency-check]
+    if: always()
+    steps:
+      - name: Download all reports
+        uses: actions/download-artifact@v4
+        with:
+          pattern: "*-report-${{ github.run_id }}"
+          merge-multiple: true
+          path: ./all-reports
+
+      - name: Create detection summary
+        run: |
+          echo "## 🔍 Detection Layer Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- Run ID: ${{ github.run_id }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Trigger: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Branch: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Scanner | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Gitleaks (Secrets) | ${{ needs.secret-detection.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Semgrep (SAST) | ${{ needs.static-analysis.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Dependency Audit | ${{ needs.dependency-check.result }} |" >> $GITHUB_STEP_SUMMARY
+
+      - name: Write detection metadata
+        run: |
+          cat > detection-metadata.json << EOF
+          {
+            "run_id": "${{ github.run_id }}",
+            "sha": "${{ github.sha }}",
+            "ref": "${{ github.ref }}",
+            "event": "${{ github.event_name }}",
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "scanners": {
+              "gitleaks": "${{ needs.secret-detection.result }}",
+              "semgrep": "${{ needs.static-analysis.result }}",
+              "dependency": "${{ needs.dependency-check.result }}"
+            }
+          }
+          EOF
+
+      - name: Upload detection metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: detection-metadata-${{ github.run_id }}
+          path: detection-metadata.json
+          retention-days: 90
