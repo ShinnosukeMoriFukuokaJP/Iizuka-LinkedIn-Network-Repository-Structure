@@ -91,9 +91,12 @@ jobs:
           if [ "$PASS" = "true" ]; then
             echo "✅ All critical policies satisfied" >> $GITHUB_STEP_SUMMARY
           else
-            echo "❌ Policy violations detected:" >> $GITHUB_STEP_SUMMARY
+            echo "⚠️ Policy violations detected (configure branch protection):" >> $GITHUB_STEP_SUMMARY
             printf '- %s\n' "${VIOLATIONS[@]}" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "→ Go to: Settings → Branches → Add protection rule for main" >> $GITHUB_STEP_SUMMARY
           fi
+          # Note: violations are reported but do not fail pipeline (handled via Issue on schedule)
 
       - name: Upload violation report
         if: always()
