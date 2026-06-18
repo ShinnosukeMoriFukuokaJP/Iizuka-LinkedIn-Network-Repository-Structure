@@ -193,7 +193,7 @@ jobs:
       - name: Run Nuclei scan
         run: |
           if [ -s targets.txt ]; then
-            ./nuclei -l targets.txt \
+            nuclei -l targets.txt \
               -t http/exposures/ \
               -t http/misconfiguration/ \
               -t http/technologies/ \
