@@ -34,7 +34,7 @@ jobs:
 
       - name: Upload Gitleaks report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: gitleaks-report-${{ github.run_id }}
           path: results.sarif
@@ -73,7 +73,7 @@ jobs:
 
       - name: Upload Semgrep SARIF
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: semgrep-report-${{ github.run_id }}
           path: |
@@ -128,7 +128,7 @@ jobs:
 
       - name: Upload Dependency reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: dependency-report-${{ github.run_id }}
           path: |
@@ -186,7 +186,7 @@ jobs:
 
       - name: Upload Nuclei results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: nuclei-report-${{ github.run_id }}
           path: |
@@ -243,7 +243,7 @@ jobs:
           EOF
 
       - name: Upload detection metadata
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: detection-metadata-${{ github.run_id }}
           path: detection-metadata.json

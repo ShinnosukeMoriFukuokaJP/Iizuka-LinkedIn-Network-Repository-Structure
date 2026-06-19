@@ -150,7 +150,7 @@ jobs:
           PYEOF
 
       - name: Upload classified findings
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: classified-findings-${{ github.run_id }}
           path: findings.json
@@ -249,7 +249,7 @@ jobs:
           EOF
 
       - name: Upload analysis report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: analysis-report-${{ github.run_id }}
           path: analysis-report.json
