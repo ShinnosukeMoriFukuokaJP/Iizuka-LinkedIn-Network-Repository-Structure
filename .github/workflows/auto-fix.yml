@@ -51,7 +51,7 @@ jobs:
       has_fixable: ${{ steps.check.outputs.has_fixable }}
       fix_count: ${{ steps.check.outputs.fix_count }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - uses: actions/setup-python@v5
@@ -94,7 +94,7 @@ jobs:
     needs: [owner-check, prepare-fix]
     if: needs.owner-check.outputs.authorized == 'true' && needs.prepare-fix.outputs.has_fixable == 'true'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
