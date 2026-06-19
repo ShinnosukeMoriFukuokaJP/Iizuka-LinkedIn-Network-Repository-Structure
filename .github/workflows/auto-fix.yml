@@ -175,7 +175,7 @@ jobs:
         run: git push origin "${{ steps.branch.outputs.branch }}"
       - name: Create Pull Request
         if: steps.commit.outputs.committed == 'true'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const fs = require('fs');
@@ -230,7 +230,7 @@ jobs:
       - name: Create CRITICAL issue
         if: steps.check-critical.outputs.has_critical == 'true'
         continue-on-error: true
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             await github.rest.issues.create({

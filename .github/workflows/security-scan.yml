@@ -370,7 +370,7 @@ jobs:
 
       - name: Comment scan summary on commit
         if: always() && steps.classify.outputs.total_findings != '0'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const fs = require('fs');
@@ -555,7 +555,7 @@ jobs:
           path: /tmp/all-results/
 
       - name: Generate consolidated report & create Issue if needed
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const fs = require('fs');
