@@ -8,6 +8,19 @@
 
 ---
 
+## External Links
+
+| Platform | URL | Purpose |
+|----------|-----|---------|
+| **LinkedIn** | [linkedin.com/in/shinnosuke-mori-819a80100](https://www.linkedin.com/in/shinnosuke-mori-819a80100) | Narrative layer — identity, posts, featured |
+| **GitHub** | [ShinnosukeMoriFukuokaJP/Iizuka-LinkedIn-Network-Repository-Structure](https://github.com/ShinnosukeMoriFukuokaJP/Iizuka-LinkedIn-Network-Repository-Structure) | Execution layer — projects, READMEs, scripts |
+
+> Both platforms are required for the Career Signal loop to function.  
+> LinkedIn without GitHub = unverified claims.  
+> GitHub without LinkedIn = invisible execution.
+
+---
+
 ## Layer Architecture
 
 ```
@@ -19,12 +32,14 @@
 │  ┌──────────────────────────────────────────────┐           │
 │  │ Headline → About → Featured → Posts           │           │
 │  │ Purpose: Identity + direction + social proof  │           │
+│  │ URL: linkedin.com/in/shinnosuke-mori-819a80100│           │
 │  └──────────────────────────────────────────────┘           │
 │                    ↕  bidirectional links                    │
 │  ② EXECUTION LAYER (GitHub)                                  │
 │  ┌──────────────────────────────────────────────┐           │
 │  │ README → Projects → Scripts → Docs            │           │
 │  │ Purpose: Technical proof + structure demo     │           │
+│  │ URL: github.com/ShinnosukeMoriFukuokaJP/...   │           │
 │  └──────────────────────────────────────────────┘           │
 │                    ↕  outcome documentation                  │
 │  ③ IMPACT LAYER (Case Studies)                               │
@@ -61,15 +76,15 @@ LinkedIn post referencing case study
 
 ## Component Registry
 
-| Component | Location | Update Frequency |
-|-----------|----------|-----------------|
-| LinkedIn Headline | LinkedIn profile | Quarterly |
-| LinkedIn About | LinkedIn profile | Quarterly |
-| LinkedIn Featured | LinkedIn profile | Monthly |
-| Root README | `/career-signal-system/README.md` | Per milestone |
-| Project READMEs | `/projects/*/README.md` | Per project |
-| Case Studies | `/case-studies/*.md` | Monthly |
-| Architecture | `/architecture/overview.md` | Per major change |
+| Component | Location | URL | Update Frequency |
+|-----------|----------|-----|-----------------|
+| LinkedIn Headline | LinkedIn profile | [Profile](https://www.linkedin.com/in/shinnosuke-mori-819a80100) | Quarterly |
+| LinkedIn About | LinkedIn profile | [Profile](https://www.linkedin.com/in/shinnosuke-mori-819a80100) | Quarterly |
+| LinkedIn Featured | LinkedIn profile | [Profile](https://www.linkedin.com/in/shinnosuke-mori-819a80100) | Monthly |
+| Root README | `/career-signal-system/README.md` | [GitHub](https://github.com/ShinnosukeMoriFukuokaJP/Iizuka-LinkedIn-Network-Repository-Structure/blob/main/career-signal-system/README.md) | Per milestone |
+| Project READMEs | `/projects/*/README.md` | [GitHub](https://github.com/ShinnosukeMoriFukuokaJP/Iizuka-LinkedIn-Network-Repository-Structure/tree/main/career-signal-system/projects) | Per project |
+| Case Studies | `/case-studies/*.md` | [GitHub](https://github.com/ShinnosukeMoriFukuokaJP/Iizuka-LinkedIn-Network-Repository-Structure/tree/main/career-signal-system/case-studies) | Monthly |
+| Architecture | `/architecture/overview.md` | [GitHub](https://github.com/ShinnosukeMoriFukuokaJP/Iizuka-LinkedIn-Network-Repository-Structure/blob/main/career-signal-system/architecture/overview.md) | Per major change |
 
 ---
 
@@ -87,8 +102,9 @@ LinkedIn post referencing case study
 
 ```
 AI HOLDINGS OS 2026
-├── LinkedIn Strategy Layer
-├── GitHub Automation Layer  ← Career Signal System lives here
+├── LinkedIn Strategy Layer       → linkedin.com/in/shinnosuke-mori-819a80100
+├── GitHub Automation Layer       → github.com/ShinnosukeMoriFukuokaJP/...
+│   └── Career Signal System      ← This repository
 ├── Security OS (GitHub Actions)
 ├── Iizuka LinkedIn Network (regional ecosystem)
 ├── Zapier/n8n Automation Stack
@@ -102,8 +118,10 @@ AI HOLDINGS OS 2026
 | Version | Date | Changes |
 |---------|------|---------|
 | v1.0 | 2026-06 | Initial system design and deployment |
+| v1.1 | 2026-06 | Added LinkedIn URL — bidirectional loop complete |
 
 ---
 
 *Built in Iizuka City, Fukuoka Prefecture.*  
-*Part of a one-person AI operating system for the Chikuho region.*
+*Part of a one-person AI operating system for the Chikuho region.*  
+*LinkedIn: [shinnosuke-mori-819a80100](https://www.linkedin.com/in/shinnosuke-mori-819a80100)*
