@@ -87,7 +87,7 @@ jobs:
       needs.resolve-context.outputs.action_required == 'pr_comment'
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Download findings
         uses: actions/download-artifact@v4
@@ -190,7 +190,7 @@ jobs:
       needs.resolve-context.outputs.action_required == 'pr_block'
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
