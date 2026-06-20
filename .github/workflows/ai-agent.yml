@@ -1,0 +1,46 @@
+name: "🤖 Claude AI Agent"
+
+# Trigger: Issue opened with label 'ai-agent'
+# Claude reads the issue → generates a structured response → posts as comment
+# Owner-only lock: only ShinnosukeMoriFukuokaJP can trigger via label
+
+on:
+  issues:
+    types: [labeled]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  claude-agent:
+    name: "Claude Issue Responder"
+    runs-on: ubuntu-latest
+
+    # Safety: only run on 'ai-agent' label, owner repo only
+    if: |
+      github.event.label.name == 'ai-agent' &&
+      github.repository_owner == 'ShinnosukeMoriFukuokaJP'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install anthropic --quiet
+
+      - name: Run Claude Agent
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_AUTHOR: ${{ github.event.issue.user.login }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: python .github/scripts/claude_agent.py
