@@ -1,20 +1,14 @@
 #!/usr/bin/env python3
 """
-Claude AI Agent — GitHub Issue Responder
-Part of: AI HOLDINGS OS 2026 | Iizuka City, Fukuoka
-Repository: ShinnosukeMoriFukuokaJP/Iizuka-LinkedIn-Network-Repository-Structure
-
-Trigger: Issue labeled with 'ai-agent'
-Action : Claude reads issue → posts structured PSI response as comment
+Claude AI Agent v2 — urllib完結版（SDK不要）
+AI HOLDINGS OS 2026 | Iizuka City, Fukuoka
 """
 
 import os
 import json
 import urllib.request
 import urllib.error
-import anthropic
 
-# ── Config ────────────────────────────────────────────────────────
 ANTHROPIC_API_KEY = os.environ["ANTHROPIC_API_KEY"]
 GITHUB_TOKEN      = os.environ["GITHUB_TOKEN"]
 REPO              = os.environ["REPO"]
@@ -38,51 +32,61 @@ Language: Match the language of the issue (Japanese or English).
 Tone: Professional but approachable. Regional context (Fukuoka/Kyushu) is relevant.
 """
 
-def build_prompt() -> str:
-    return f"""GitHub Issue #{ISSUE_NUMBER} in {REPO}
+
+def call_claude(issue_title: str, issue_body: str) -> str:
+    prompt = f"""GitHub Issue #{ISSUE_NUMBER} in {REPO}
 
 Author: {ISSUE_AUTHOR}
-Title: {ISSUE_TITLE}
+Title: {issue_title}
 
 Body:
-{ISSUE_BODY or "(no body provided)"}
+{issue_body or "(no body provided)"}
 
 Please analyze this issue and provide a structured response."""
 
+    payload = json.dumps({
+        "model": "claude-sonnet-4-6",
+        "max_tokens": 1024,
+        "system": SYSTEM_PROMPT,
+        "messages": [{"role": "user", "content": prompt}]
+    }).encode("utf-8")
 
-def call_claude(prompt: str) -> str:
-    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-    message = client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=1024,
-        system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": prompt}]
+    req = urllib.request.Request(
+        "https://api.anthropic.com/v1/messages",
+        data=payload,
+        method="POST",
+        headers={
+            "x-api-key": ANTHROPIC_API_KEY,
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+        }
     )
-    return message.content[0].text
+
+    with urllib.request.urlopen(req) as r:
+        data = json.loads(r.read())
+        return data["content"][0]["text"]
 
 
 def post_github_comment(body: str) -> None:
     url = f"https://api.github.com/repos/{REPO}/issues/{ISSUE_NUMBER}/comments"
     payload = json.dumps({"body": body}).encode("utf-8")
     req = urllib.request.Request(
-        url,
-        data=payload,
-        method="POST",
+        url, data=payload, method="POST",
         headers={
             "Authorization": f"token {GITHUB_TOKEN}",
             "Content-Type": "application/json",
             "Accept": "application/vnd.github.v3+json",
-            "User-Agent": "ClaudeAgent/1.0"
+            "User-Agent": "ClaudeAgent/2.0"
         }
     )
     with urllib.request.urlopen(req) as r:
         result = json.loads(r.read())
-        print(f"Comment posted: {result.get('html_url')}")
+        print(f"✅ Comment posted: {result.get('html_url')}")
 
 
 def format_response(claude_response: str) -> str:
     return f"""<!-- Claude AI Agent Response -->
-> 🤖 **Claude AI Agent** — *AI HOLDINGS OS 2026*
+> 🤖 **Claude AI Agent** (claude-sonnet-4-6) — *AI HOLDINGS OS 2026*
 
 {claude_response}
 
@@ -93,10 +97,7 @@ def format_response(claude_response: str) -> str:
 
 if __name__ == "__main__":
     print(f"Processing Issue #{ISSUE_NUMBER}: {ISSUE_TITLE}")
-
-    prompt   = build_prompt()
-    response = call_claude(prompt)
+    response = call_claude(ISSUE_TITLE, ISSUE_BODY)
     comment  = format_response(response)
-
     post_github_comment(comment)
     print("Done.")
