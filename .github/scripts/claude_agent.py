@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-Claude AI Agent v2 — urllib完結版（SDK不要）
+Claude AI Agent v3 — JSON context経由でIssue情報を受け取る
+特殊文字・改行を含むIssue bodyに対応
 AI HOLDINGS OS 2026 | Iizuka City, Fukuoka
 """
 
@@ -9,13 +10,18 @@ import json
 import urllib.request
 import urllib.error
 
+# ── Issue context をJSONファイルから読み込む ──────────────────────
+CONTEXT_PATH = os.environ.get("ISSUE_CONTEXT_PATH", "/tmp/issue_context.json")
+with open(CONTEXT_PATH) as f:
+    ctx = json.load(f)
+
 ANTHROPIC_API_KEY = os.environ["ANTHROPIC_API_KEY"]
 GITHUB_TOKEN      = os.environ["GITHUB_TOKEN"]
-REPO              = os.environ["REPO"]
-ISSUE_NUMBER      = os.environ["ISSUE_NUMBER"]
-ISSUE_TITLE       = os.environ.get("ISSUE_TITLE", "")
-ISSUE_BODY        = os.environ.get("ISSUE_BODY", "")
-ISSUE_AUTHOR      = os.environ.get("ISSUE_AUTHOR", "")
+REPO              = ctx["repo"]
+ISSUE_NUMBER      = ctx["issue_number"]
+ISSUE_TITLE       = ctx["issue_title"]
+ISSUE_BODY        = ctx["issue_body"]
+ISSUE_AUTHOR      = ctx["issue_author"]
 
 SYSTEM_PROMPT = """You are an AI assistant embedded in the Iizuka LinkedIn Network GitHub repository.
 This repository serves the Fukuoka/Kyushu SME ecosystem and the AI HOLDINGS OS 2026 framework.
@@ -33,14 +39,14 @@ Tone: Professional but approachable. Regional context (Fukuoka/Kyushu) is releva
 """
 
 
-def call_claude(issue_title: str, issue_body: str) -> str:
+def call_claude() -> str:
     prompt = f"""GitHub Issue #{ISSUE_NUMBER} in {REPO}
 
 Author: {ISSUE_AUTHOR}
-Title: {issue_title}
+Title: {ISSUE_TITLE}
 
 Body:
-{issue_body or "(no body provided)"}
+{ISSUE_BODY or "(no body provided)"}
 
 Please analyze this issue and provide a structured response."""
 
@@ -61,7 +67,6 @@ Please analyze this issue and provide a structured response."""
             "content-type": "application/json",
         }
     )
-
     with urllib.request.urlopen(req) as r:
         data = json.loads(r.read())
         return data["content"][0]["text"]
@@ -76,7 +81,7 @@ def post_github_comment(body: str) -> None:
             "Authorization": f"token {GITHUB_TOKEN}",
             "Content-Type": "application/json",
             "Accept": "application/vnd.github.v3+json",
-            "User-Agent": "ClaudeAgent/2.0"
+            "User-Agent": "ClaudeAgent/3.0"
         }
     )
     with urllib.request.urlopen(req) as r:
@@ -85,7 +90,7 @@ def post_github_comment(body: str) -> None:
 
 
 def format_response(claude_response: str) -> str:
-    return f"""<!-- Claude AI Agent Response -->
+    return f"""<!-- Claude AI Agent v3 -->
 > 🤖 **Claude AI Agent** (claude-sonnet-4-6) — *AI HOLDINGS OS 2026*
 
 {claude_response}
@@ -97,7 +102,7 @@ def format_response(claude_response: str) -> str:
 
 if __name__ == "__main__":
     print(f"Processing Issue #{ISSUE_NUMBER}: {ISSUE_TITLE}")
-    response = call_claude(ISSUE_TITLE, ISSUE_BODY)
+    response = call_claude()
     comment  = format_response(response)
     post_github_comment(comment)
     print("Done.")
