@@ -1,9 +1,5 @@
 name: "🤖 Claude AI Agent"
 
-# Trigger: Issue opened with label 'ai-agent'
-# Claude reads the issue → generates a structured response → posts as comment
-# Owner-only lock: only ShinnosukeMoriFukuokaJP can trigger via label
-
 on:
   issues:
     types: [labeled]
@@ -17,7 +13,6 @@ jobs:
     name: "Claude Issue Responder"
     runs-on: ubuntu-latest
 
-    # Safety: only run on 'ai-agent' label, owner repo only
     if: |
       github.event.label.name == 'ai-agent' &&
       github.repository_owner == 'ShinnosukeMoriFukuokaJP'
@@ -31,16 +26,24 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install dependencies
-        run: pip install anthropic --quiet
+      - name: Write issue context to JSON
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const fs = require('fs');
+            const context = {
+              issue_number: String(context.issue.number),
+              issue_title:  context.payload.issue.title  || "",
+              issue_body:   context.payload.issue.body   || "",
+              issue_author: context.payload.issue.user.login || "",
+              repo:         context.repo.owner + "/" + context.repo.repo
+            };
+            fs.writeFileSync('/tmp/issue_context.json', JSON.stringify(context));
+            core.info("Issue context written to /tmp/issue_context.json");
 
       - name: Run Claude Agent
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
-          ISSUE_TITLE: ${{ github.event.issue.title }}
-          ISSUE_BODY: ${{ github.event.issue.body }}
-          ISSUE_AUTHOR: ${{ github.event.issue.user.login }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO: ${{ github.repository }}
+          ISSUE_CONTEXT_PATH: /tmp/issue_context.json
         run: python .github/scripts/claude_agent.py
