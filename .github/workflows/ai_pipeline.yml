@@ -61,7 +61,7 @@ jobs:
 
     steps:
       - name: Post AI result to Issue
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const result = `${{ needs.hf-inference.outputs.result }}`;
