@@ -1,9 +1,13 @@
-# Conceptual example: Email summarization workflow
+# Email Summarization — Automation Concept
+
+# Problem: High email volume buries deadlines and action items.
+# Solution: Python-based AI parsing that extracts structured signals from raw email text.
+# Impact: Reduces email processing time and ensures no deadline or action item is missed.
 
 def summarize_email(email_text):
     """
-    Simulated AI summary function
-    (In real case, connect to OpenAI API)
+    AI-powered email summarization function.
+    In production: connect to OpenAI or Anthropic API.
     """
 
     summary = {
@@ -12,20 +16,31 @@ def summarize_email(email_text):
         "priority": "medium"
     }
 
-    # Example logic (placeholder)
-    if "deadline" in email_text:
-        summary["action_items"].append("Check deadline")
+    # Signal detection logic
+    if "deadline" in email_text.lower() or "due" in email_text.lower():
+        summary["action_items"].append("Check and log deadline")
+        summary["priority"] = "high"
 
-    if "meeting" in email_text:
-        summary["main_points"].append("Meeting related content")
+    if "meeting" in email_text.lower():
+        summary["main_points"].append("Meeting coordination required")
+
+    if "urgent" in email_text.lower() or "asap" in email_text.lower():
+        summary["priority"] = "high"
+
+    if "please review" in email_text.lower():
+        summary["action_items"].append("Review requested document")
 
     return summary
 
 
-# Example input
+# Example usage
 email = """
-We need to finalize the project by next week.
-Please join the meeting tomorrow.
+We need to finalize the project proposal by next Friday.
+Please review the attached document ASAP.
+We will meet tomorrow to align on next steps.
 """
 
-print(summarize_email(email))
+result = summarize_email(email)
+print(f"Priority: {result['priority']}")
+print(f"Main points: {result['main_points']}")
+print(f"Action items: {result['action_items']}")
