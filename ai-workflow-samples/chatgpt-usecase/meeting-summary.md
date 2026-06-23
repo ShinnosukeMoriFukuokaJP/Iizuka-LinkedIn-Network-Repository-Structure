@@ -1,6 +1,12 @@
-# Meeting Summary Example
+# Meeting Summary Automation
 
-## Raw Notes
+> **Problem**: Raw meeting notes are unstructured and easy to lose.
+> **Solution**: A defined ChatGPT prompt workflow that converts notes into structured minutes in seconds.
+> **Impact**: Reproducible output every time — decisions, issues, action items, next steps.
+
+---
+
+## Raw Notes (Input)
 - Project delay discussed
 - Need more resources for development
 - Deadline shifted to next month
@@ -8,7 +14,7 @@
 
 ## AI Process (ChatGPT Task)
 
-Transform raw notes into structured minutes.
+Prompt: "Transform the following raw meeting notes into structured minutes with sections: Key Decisions, Issues Identified, Action Items, Next Steps."
 
 ## Output
 
