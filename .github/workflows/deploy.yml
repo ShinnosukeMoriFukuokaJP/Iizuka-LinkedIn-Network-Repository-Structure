@@ -1,0 +1,302 @@
+# .github/workflows/deploy.yml
+name: Deploy 3D Simulator to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main # mainブランチへのプッシュを検知
+
+# Pagesへのデプロイに必要な権限を設定
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps: deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # ルートディレクトリ（index.htmlがある場所）をアーカイブ
+          path: '.'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+        <!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Infrastructure & Drone Flight Simulator (2026 Law Compliant)</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #050505;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #fff;
+        }
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+        }
+        #ui-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: 320px;
+            background: rgba(10, 15, 30, 0.85);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 255, 200, 0.2);
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+        h1 {
+            font-size: 16px;
+            margin: 0 0 10px 0;
+            color: #00ffc8;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .status-item {
+            font-size: 12px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .status-value {
+            font-weight: bold;
+            color: #ff9f43;
+        }
+        .law-alert {
+            background: rgba(255, 76, 76, 0.2);
+            border: 1px solid #ff4c4c;
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            margin-top: 10px;
+            display: none;
+            color: #ff8888;
+        }
+        .btn {
+            background: #00ffc8;
+            color: #0a0f1e;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 10px;
+            transition: all 0.3s;
+        }
+        .btn:hover {
+            background: #00b38c;
+            box-shadow: 0 0 10px rgba(0,255,200,0.5);
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+
+    <div id="ui-panel">
+        <h1>インフラ点検・航路OS v1.0</h1>
+        <div class="status-item">
+            <span>タイムライン:</span>
+            <span class="status-value" style="color: #fff;">2026-06-25</span>
+        </div>
+        <div class="status-item">
+            <span>ドローンステータス:</span>
+            <span id="drone-status" class="status-value">AUTOPILOT</span>
+        </div>
+        <div class="status-item">
+            <span>現在座標 (X, Z):</span>
+            <span id="drone-pos" class="status-value">0.0, 0.0</span>
+        </div>
+        <div class="status-item">
+            <span>2026年改正法（1km規制）:</span>
+            <span id="law-status" class="status-value" style="color:#00ffc8;">SAFE</span>
+        </div>
+
+        <div id="alert-box" class="law-alert">
+            ⚠️ 警告: 改正小型無人機等飛行禁止法に抵触！<br>
+            重要施設より1km以内のため、直罰化対象区域です。航路の再設計（クレンジング）が必要です。
+        </div>
+
+        <button class="btn" id="toggle-zone">1km規制エリア表示切替</button>
+    </div>
+
+    <script>
+        // --- 1. 基本セットアップ ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x050505, 0.015);
+
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(30, 20, 40);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        container.appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+
+        // --- 2. 環境・ライティング ---
+        const ambientLight = new THREE.AmbientLight(0x223344);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(10, 20, 10);
+        scene.add(dirLight);
+
+        // 地面のグリッド
+        const gridHelper = new THREE.GridHelper(100, 50, 0x00ffc8, 0x223344);
+        gridHelper.position.y = -0.01;
+        scene.add(gridHelper);
+
+        // --- 3. 構造物アセット (Reality Captureを模したインフラ) ---
+        const structures = [];
+        const structMaterial = new THREE.MeshStandardMaterial({ color: 0x34495e, roughness: 0.4 });
+        
+        // 鉄塔やダム・橋梁の抽象モデル
+        const points = [
+            {x: -15, z: -10, w: 4, h: 15, d: 4},
+            {x: 10, z: -20, w: 6, h: 8, d: 6},
+            {x: 20, z: 15, w: 3, h: 20, d: 3}
+        ];
+
+        points.forEach(p => {
+            const geo = new THREE.BoxGeometry(p.w, p.h, p.d);
+            const mesh = new THREE.Mesh(geo, structMaterial);
+            mesh.position.set(p.x, p.h / 2, p.z);
+            scene.add(mesh);
+            structures.push(mesh);
+        });
+
+        // --- 4. 2026年6月改正法：1km重要施設飛行禁止エリア ---
+        // シミュレータスケール上、半径15の円柱として表現
+        const zoneGeo = new THREE.CylinderGeometry(15, 15, 40, 32);
+        const zoneMat = new THREE.MeshBasicMaterial({
+            color: 0xff4c4c,
+            transparent: true,
+            opacity: 0.25,
+            side: THREE.DoubleSide,
+            wireframe: false
+        });
+        const noFlyZone = new THREE.Mesh(zoneGeo, zoneMat);
+        noFlyZone.position.set(-5, 20, -5); // 重要施設(ダミー)の位置
+        scene.add(noFlyZone);
+
+        // 中心に重要施設インジケータ
+        const coreGeo = new THREE.SphereGeometry(1, 16, 16);
+        const coreMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+        const core = new THREE.Mesh(coreGeo, coreMat);
+        core.position.set(-5, 0, -5);
+        scene.add(core);
+
+        // --- 5. ドローンと巡回航路 (Waypoints) ---
+        const droneGeo = new THREE.ConeGeometry(0.8, 2, 4);
+        droneGeo.rotateX(Math.PI / 2); // 進行方向を向くよう回転
+        const droneMat = new THREE.MeshStandardMaterial({ color: 0x00ffc8, emissive: 0x00ffc8, emissiveIntensity: 0.3 });
+        const drone = new THREE.Mesh(droneGeo, droneMat);
+        scene.add(drone);
+
+        // 航路設定
+        const waypoints = [
+            new THREE.Vector3(25, 5, 25),
+            new THREE.Vector3(15, 8, -5),
+            new THREE.Vector3(-10, 12, -15), // ⚠️ 規制エリア内へ侵入する危険航路
+            new THREE.Vector3(-20, 5, 10),
+            new THREE.Vector3(0, 7, 20)
+        ];
+
+        // 航路を線で描画
+        const lineGeo = new THREE.BufferGeometry().setFromPoints(waypoints);
+        const lineMat = new THREE.LineBasicMaterial({ color: 0x00ffc8, linewidth: 2 });
+        const routeLine = new THREE.LineLoop(lineGeo, lineMat);
+        scene.add(routeLine);
+
+        // --- 6. アニメーション＆ロジックループ ---
+        let progress = 0;
+        const speed = 0.002;
+        const curve = new THREE.CatmullRomCurve3(waypoints, true);
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // ドローンの位置移動
+            progress += speed;
+            if (progress > 1) progress = 0;
+
+            const pos = curve.getPointAt(progress);
+            drone.position.copy(pos);
+
+            // 進行方向を向く
+            const tangent = curve.getTangentAt(progress).normalize();
+            const lookAtTarget = pos.clone().add(tangent);
+            drone.lookAt(lookAtTarget);
+
+            // UI更新
+            document.getElementById('drone-pos').innerText = `${pos.x.toFixed(1)}, ${pos.z.toFixed(1)}`;
+
+            // 改正法エリア判定（中心点からの2D距離で簡易判定）
+            const distToZoneCenter = Math.sqrt(Math.pow(pos.x - (-5), 2) + Math.pow(pos.z - (-5), 2));
+            if (distToZoneCenter < 15) {
+                document.getElementById('law-status').innerText = 'VIOLATION';
+                document.getElementById('law-status').style.color = '#ff4c4c';
+                document.getElementById('alert-box').style.display = 'block';
+                droneMat.color.setHex(0xff4c4c);
+                droneMat.emissive.setHex(0xff4c4c);
+            } else {
+                document.getElementById('law-status').innerText = 'SAFE';
+                document.getElementById('law-status').style.color = '#00ffc8';
+                document.getElementById('alert-box').style.display = 'none';
+                droneMat.color.setHex(0x00ffc8);
+                droneMat.emissive.setHex(0x00ffc8);
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        // --- 7. インタラクション ---
+        document.getElementById('toggle-zone').addEventListener('click', () => {
+            noFlyZone.visible = !noFlyZone.visible;
+        });
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // 始動
+        animate();
+    </script>
+</body>
+</html>
+        
