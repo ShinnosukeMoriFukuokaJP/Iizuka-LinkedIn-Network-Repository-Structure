@@ -1,0 +1,85 @@
+name: Travel OSS Publish
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'travel-oss/**'
+      - '*.md'
+
+jobs:
+  validate-and-publish:
+    runs-on: ubuntu-latest
+    name: Validate Markdown and Update Index
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check required files exist
+        run: |
+          echo "=== Travel OSS File Check ==="
+          FILES=(
+            "travel-oss/README.md"
+            "travel-oss/SYSTEM_PROMPT.md"
+            "travel-oss/CHECKLIST.md"
+            "travel-oss/templates/travel-record.md"
+            "travel-oss/templates/city-node.md"
+            "travel-oss/templates/linkedin-post.md"
+            "travel-oss/templates/repo-readme.md"
+          )
+          ALL_OK=true
+          for f in "${FILES[@]}"; do
+            if [ -f "$f" ]; then
+              echo "✅ $f"
+            else
+              echo "❌ Missing: $f"
+              ALL_OK=false
+            fi
+          done
+          if [ "$ALL_OK" = false ]; then
+            echo "⚠️  Some files are missing. Please check the structure."
+          else
+            echo "🎉 All Travel OSS files are present."
+          fi
+
+      - name: Count Markdown files
+        run: |
+          echo "=== Markdown File Count ==="
+          TOTAL=$(find . -name "*.md" -not -path "./.git/*" | wc -l)
+          TRAVEL=$(find ./travel-oss -name "*.md" 2>/dev/null | wc -l)
+          echo "Total .md files in repo: $TOTAL"
+          echo "Travel OSS .md files:    $TRAVEL"
+
+      - name: Generate file index
+        run: |
+          echo "=== Travel OSS File Index ===" > /tmp/travel-index.txt
+          echo "Generated: $(date -u '+%Y-%m-%d %H:%M UTC')" >> /tmp/travel-index.txt
+          echo "" >> /tmp/travel-index.txt
+          find ./travel-oss -name "*.md" -not -path "./.git/*" | sort | while read f; do
+            SIZE=$(wc -c < "$f")
+            echo "- $f (${SIZE} bytes)" >> /tmp/travel-index.txt
+          done
+          cat /tmp/travel-index.txt
+
+      - name: Validate checklist format
+        run: |
+          echo "=== Checklist Progress ==="
+          if [ -f "travel-oss/CHECKLIST.md" ]; then
+            DONE=$(grep -c "\- \[x\]" travel-oss/CHECKLIST.md 2>/dev/null || echo 0)
+            TODO=$(grep -c "\- \[ \]" travel-oss/CHECKLIST.md 2>/dev/null || echo 0)
+            TOTAL=$((DONE + TODO))
+            echo "Completed: $DONE / $TOTAL"
+            if [ "$TOTAL" -gt 0 ]; then
+              PCT=$((DONE * 100 / TOTAL))
+              echo "Progress:  $PCT%"
+            fi
+          fi
+
+      - name: Summary
+        run: |
+          echo "=== ✅ Travel OSS Publish Check Complete ==="
+          echo "Repository: ${{ github.repository }}"
+          echo "Branch:     ${{ github.ref_name }}"
+          echo "Commit:     ${{ github.sha }}"
+          echo "Triggered by push to travel-oss/"
