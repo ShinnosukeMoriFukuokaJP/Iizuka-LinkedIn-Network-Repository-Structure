@@ -1,197 +1,141 @@
-# Iizuka LinkedIn Network
+# Iizuka LinkedIn Network & AI Systems Portfolio
 
-<div align="center">
+**Shinnosuke Mori** · Iizuka, Fukuoka, Japan · Built entirely on iPhone · ¥0 infrastructure
 
-**The Definitive Regional Ecosystem Platform for the Chikuho Region of Fukuoka, Japan**
-
-[![GitHub Stars](https://img.shields.io/github/stars/ShinnosukeMoriFukuokaJP/Iizuka-LinkedIn-Network-Repository-Structure?style=social)](https://github.com/ShinnosukeMoriFukuokaJP/Iizuka-LinkedIn-Network-Repository-Structure)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
-[![Contributors](https://img.shields.io/github/contributors/ShinnosukeMoriFukuokaJP/Iizuka-LinkedIn-Network-Repository-Structure)](https://github.com/ShinnosukeMoriFukuokaJP/Iizuka-LinkedIn-Network-Repository-Structure/graphs/contributors)
-[![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-Live-brightgreen)](https://shinnosukemorifukuokajp.github.io/Iizuka-LinkedIn-Network-Repository-Structure/)
-
-**Discover • Connect • Build • Innovate**
-
-*Empowering Iizuka City, Tagawa City, Nogata City, and the Chikuho Region through open knowledge, professional networking, AI, DX, and entrepreneurship*
-
-[🌐 Website](https://shinnosukemorifukuokajp.github.io/Iizuka-LinkedIn-Network-Repository-Structure/) • [🚀 Start Here](START_HERE.md) • [🤖 AI Resources](resources/ai/README.md) • [💼 Jobs](jobs/README.md) • [🏙️ Cities](cities/README.md) • [📅 Events](events/README.md) • [🤝 Join](MEMBERSHIP.md)
-
-</div>
+> *"Systems beat heroics. Reproducibility beats talent."*
 
 ---
 
-## What Is This?
+## 🗂 このリポジトリに含まれるシステム
 
-**Iizuka LinkedIn Network** is a free, open-source platform functioning simultaneously as:
-
-| Hub | Description |
-|-----|-------------|
-| 📚 **Regional Knowledge Base** | Wikipedia-style documentation of the Chikuho Region's professional ecosystem |
-| 💼 **Professional Networking Hub** | LinkedIn-integrated community for Fukuoka Prefecture professionals |
-| 🤖 **AI Learning Hub** | Structured Generative AI education for regional businesses |
-| 💻 **DX Learning Hub** | Digital Transformation resources tailored for Chikuho SMEs |
-| 🚀 **Startup Ecosystem Hub** | Resources, stories, and connections for Chikuho Region founders |
-| 🎯 **Career Development Hub** | Jobs, LinkedIn strategy, and career pathways in Fukuoka Prefecture |
-| 🌱 **Community Growth Platform** | Infrastructure for regional innovation and collaboration |
-
-> **"The Chikuho Region has the talent, the history, and the resolve. We build the infrastructure."**
+| システム | カテゴリ | 概要 |
+|---------|---------|------|
+| [飯塚・筑豊 LinkedIn Network](#-chikuho-regional-dx-platform) | 🌏 地域DX | 筑豊11市町村カバー・GitHub Pages公開中 |
+| [Security OS](#-security-os--devsecops-pipeline) | 🔒 セキュリティ | Gitleaks・OWASP ZAP・自己修復型パイプライン |
+| [Autonomous AI PR Engine](#-autonomous-ai-pr-engine) | 🤖 AI自動化 | blast-radius制限・バグ学習DB・自律PR生成 |
+| [GitHub Actions × Claude API Pipeline](#-github-actions--claude-api-pipeline) | ⚡ 自動化 | Issue自動応答・PR自動生成 |
+| [LinkedIn Network Analysis AI](#-linkedin-network-analysis-ai) | 📊 分析AI | NetworkX × Claude API・4層アーキテクチャ |
+| [Shimonoseki LN Repository](#-shimonoseki-linkedin-network) | 🌏 地域DX | 山口県下関市・Streamlit実装 |
+| [Japan Local Intelligence OS (JLI-OS)](#-japan-local-intelligence-os) | 🗾 知識基盤 | 都市=リポジトリ構造・25+ファイル |
+| [Travel OSS System](#-travel-oss-system) | ✈️ 自動化 | 旅行先ごとにリポジトリ自動生成 |
 
 ---
 
-## Coverage Area
+## 🌏 Chikuho Regional DX Platform
 
-This platform covers the entire **Chikuho Region** of **Fukuoka Prefecture**, Japan:
+**筑豊地域（飯塚・田川・直方ほか11市町村）のDXプラットフォーム**
 
-| City / Town | Page | Population |
-|-------------|------|------------|
-| 飯塚市 Iizuka City | [→ View](cities/iizuka.md) | ~125,000 |
-| 田川市 Tagawa City | [→ View](cities/tagawa.md) | ~45,000 |
-| 直方市 Nogata City | [→ View](cities/nogata.md) | ~55,000 |
-| 嘉麻市 Kama City | [→ View](cities/kama.md) | ~35,000 |
-| 桂川町 Keisen Town | [→ View](cities/keisen.md) | ~15,000 |
-| 小竹町 Kotake Town | [→ View](cities/kotake.md) | ~9,000 |
-| 宮若市 Miyawaka City | [→ View](cities/miyawaka.md) | ~27,000 |
-| 添田町 Soeda Town | [→ View](cities/soeda.md) | ~9,000 |
-| 川崎町 Kawara Town | [→ View](cities/kawara.md) | ~15,000 |
-| 福智町 Fukuchi Town | [→ View](cities/fukuchi.md) | ~24,000 |
-| 大任町 Oto Town | [→ View](cities/oto.md) | ~5,000 |
-
----
-
-## Repository Structure
+- 90+ ファイル構成 · GitHub Pages で公開中
+- 企業情報・求人・イベント・地域データを統合
+- 日英バイリンガル対応
 
 ```
-Iizuka-LinkedIn-Network/
-├── 📄 README.md                    # You are here
-├── 📄 START_HERE.md                # New member onboarding
-├── 📄 CONTRIBUTING.md              # How to contribute
-├── 📄 ROADMAP.md                   # Community roadmap
-├── 📄 MEMBERSHIP.md                # Join the community
-├── 📄 EVENTS.md                    # Event calendar
-├── 🏙️ cities/                      # 11 Chikuho Region city pages
-├── 🏢 companies/                   # Company database by sector
-│   ├── ai/                         # AI companies
-│   ├── technology/                 # Tech companies
-│   ├── manufacturing/              # Manufacturing
-│   ├── healthcare/                 # Healthcare
-│   └── education/                  # Education
-├── 💼 jobs/                        # Job database
-│   ├── remote/                     # Remote opportunities
-│   ├── ai/                         # AI roles
-│   ├── dx/                         # DX roles
-│   ├── local/                      # Local listings
-│   └── internships/                # Student opportunities
-├── 🤝 communities/                 # Community directory
-├── 📅 events/                      # Events 2026–2030
-├── 🚀 startups/                    # Startup ecosystem
-├── 🏆 success-stories/             # Founder stories
-├── 🎓 education/                   # Educational institutions
-├── 🏛️ government/                  # Government resources
-├── 💚 nonprofits/                  # NPO directory
-├── 📰 media/                       # Regional media
-├── 🔬 research/                    # Research institutions
-├── 📚 resources/                   # Learning resources
-│   ├── ai/                         # AI tools and courses
-│   ├── dx/                         # DX guides
-│   ├── career/                     # Career development
-│   └── startups/                   # Entrepreneurship
-├── 📖 docs/                        # Governance and meta docs
-├── 🛠️ scripts/                     # Automation scripts
-└── 🖼️ images/                      # Brand assets
+cities/          → 各市町村ページ（14都市）
+companies/       → 地域企業データベース
+docs/            → 戦略・ガバナンス文書
+.github/         → 自動化ワークフロー
 ```
 
 ---
 
-## Mission
+## 🔒 Security OS / DevSecOps Pipeline
 
-To establish the most discoverable, impactful, and comprehensive professional ecosystem platform in the **Chikuho Region** — driving **LinkedIn Networking**, **Career Development**, **Artificial Intelligence**, **Generative AI**, **Digital Transformation**, **Entrepreneurship**, and **Regional Revitalization** — starting in **Iizuka City** and scaling across Japan and the world.
+**iPhone のみで構築した自己修復型セキュリティシステム**
 
----
+- **Gitleaks** — APIキー・シークレット漏洩検出
+- **Semgrep** — 静的コード解析・脆弱性スキャン
+- **Nuclei** — 既知の脆弱性テンプレートスキャン
+- **OWASP ZAP** — Webアプリケーションセキュリティテスト
+- 脆弱性検出時に自動で修正PRを生成するガードレール付き
 
-## Vision
-
-Transform the **Chikuho Region** from a post-industrial region into Japan's most celebrated model for community-driven innovation — where **AI**, **DX**, and **Professional Networking** bridge the gap between local talent and global opportunity.
-
----
-
-## Regional Impact Goals
-
-| Phase | Timeline | Members | Milestone |
-|-------|----------|---------|-----------|
-| Seed | 2025 Q1 | 10 | Repository live, LinkedIn Group launched |
-| Foundation | 2025 Q2–Q3 | 100 | Events running, resources published |
-| Growth | 2025 Q4 | 500 | Media coverage, sponsor partners |
-| Scale | 2026 | 1,000 | National recognition |
-| Expand | 2027 | 5,000 | Multi-prefecture network |
-| National | 2028–2030 | 10,000+ | Japan's model regional ecosystem |
+> ✅ Secret scanning で APIキー漏洩ゼロを確認済み（2026年6月28日）
 
 ---
 
-## Core Pathways
+## 🤖 Autonomous AI PR Engine
 
-| Pathway | Description | Start |
-|---------|-------------|-------|
-| 🤖 AI Learning | Generative AI from zero to deployment | [→](resources/ai/README.md) |
-| 💻 DX Learning | Digital Transformation for SMEs | [→](resources/dx/README.md) |
-| 💼 Career Dev | LinkedIn mastery and job placement | [→](resources/career/README.md) |
-| 🚀 Entrepreneur | From idea to funded startup | [→](resources/startups/README.md) |
-| 🤝 Volunteer | Community building and open source | [→](CONTRIBUTING.md) |
+**ガードレール付き自律 AI Pull Request エンジン**
 
----
-
-## SEO Content Authority Map
-
-This repository is the central node of a content cluster targeting:
-
-**Primary Keywords**
-`Iizuka LinkedIn` · `Iizuka AI` · `Chikuho LinkedIn` · `Chikuho AI` · `Fukuoka AI Community`
-
-**City Keywords**
-`Tagawa LinkedIn` · `Nogata LinkedIn` · `Kama AI` · `Miyawaka DX` · `Chikuho Startup`
-
-**Topic Keywords**
-`Fukuoka Professional Networking` · `Japan Regional Innovation` · `Chikuho Career` · `Fukuoka DX SME`
-
-**Internal Linking**: Every city page → companies → jobs → events → resources (full cluster)
+- **Blast-radius 制限** — 1PRあたりのファイル変更数を制限
+- **バグ学習 DB** — 過去の失敗パターンを記録・再発防止
+- **Unified diff 出力** — 変更内容を人間が検証可能な形式で出力
+- 完全自律稼働しながら暴走リスクを3層で抑制
 
 ---
 
-## Get Involved
+## ⚡ GitHub Actions × Claude API Pipeline
 
-- ⭐ **Star** this repository
-- 💼 **[Join LinkedIn Group →](https://www.linkedin.com/groups/14722875)** *(link to be activated)*
-- 🤝 **[Contribute →](CONTRIBUTING.md)**
-- 📬 **[Newsletter →](#)**
-- 📧 **[Contact →](mailto:community@iizuka-linkedin-network.org)**
+**Issue への自動応答と PR 自動生成パイプライン**
 
----
-
-
-## 📝 Zenn Articles
-
-| 記事 | リンク |
-|------|--------|
-| 無職がClaude（AI）だけで日本初の地域エコシステムを作った話 | [→ Zenn](https://zenn.dev/articles/01-unemployed-built-regional-ecosystem) |
-| Claudeで地方中小企業のDXを支援する——筑豊地域での実践プロンプト集 | [→ Zenn](https://zenn.dev/articles/02-claude-prompting-regional-sme) |
-
-## License
-
-[MIT License](LICENSE) — Free to use, fork, and adapt for any regional community worldwide.
+- GitHub Issues にラベルを付けると Claude API が自動応答
+- `/tmp/issue_context.json` を経由したマルチライン対応（v3で安定）
+- Python `urllib` のみで実装（外部ライブラリ不使用）
 
 ---
 
-*Iizuka LinkedIn Network · Chikuho Region · Fukuoka Prefecture · Japan*
-*Open Source · Community Driven · Globally Minded*
+## 📊 LinkedIn Network Analysis AI
 
-[免責事項 / Legal Disclaimer](docs/legal-disclaimer.md)
+**NetworkX × Claude API による LinkedIn ネットワーク分析システム**
 
+- 4層アーキテクチャ（収集・解析・生成・出力）
+- NetworkX でグラフ構造を分析
+- 日本のスクレイピング規制（不正競争防止法）に準拠した設計
 
-<!-- AI_SUMMARY_START -->
-## 🤖 AI-Generated Summary
+---
 
-> Last updated: 2026-06-21 23:21 UTC
+## 🌏 Shimonoseki LinkedIn Network
 
-[Error: <urlopen error [Errno -5] No address associated with hostname>]
+**山口県下関市の LinkedIn ネットワークリポジトリ**
 
-*Generated by Claude × HuggingFace Pipeline*
-<!-- AI_SUMMARY_END -->
+- 30+ ファイル構成
+- Streamlit による可視化ダッシュボード
+- 下関市の産業・企業・地域特性データを統合
+
+---
+
+## 🗾 Japan Local Intelligence OS
+
+**「都市=リポジトリ」構造の日本版地域知識インフラ**
+
+- 各都市の知識ベースを GitHub リポジトリとして管理
+- AIエージェントによる自動更新設計
+- 25+ ファイル生成済み · 日本法コンプライアンス審査中
+
+---
+
+## ✈️ Travel OSS System
+
+**旅行先ごとに fork 可能なリポジトリを自動生成するシステム**
+
+- 旅行記録をそのまま OSS として公開
+- 日英バイリンガルの LinkedIn 投稿を自動生成
+- GitHub Actions で全工程を自動化
+
+---
+
+## 🛠 Tech Stack
+
+| レイヤー | 使用技術 |
+|---------|---------|
+| **AI** | Claude API (Anthropic) · NetworkX |
+| **自動化** | GitHub Actions · Zapier · n8n |
+| **セキュリティ** | Gitleaks · Semgrep · Nuclei · OWASP ZAP |
+| **言語** | Python (urllib のみ) |
+| **フロントエンド** | GitHub Pages · Streamlit |
+| **開発環境** | iPhone Safari のみ · PC不使用 · ¥0 |
+
+---
+
+## 📌 About
+
+- **開発者**: Shinnosuke Mori
+- **拠点**: 福岡県飯塚市（筑豊地域）
+- **開発期間**: 2024年11月〜現在
+- **開発環境**: iPhone Safari のみ（PC不使用）
+- **コスト**: ¥0（全て無料ツール）
+- **GitHub**: [ShinnosukeMoriFukuokaJP](https://github.com/ShinnosukeMoriFukuokaJP)
+
+---
+
+*現場を知った上でデジタル化を推進できる人材を目指しています。*
+*DX推進・AI導入支援に関するご連絡はLinkedInまたはGitHub Issuesからどうぞ。*
